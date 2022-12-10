@@ -1,0 +1,15 @@
+[package]
+name = "plex-anihook"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap = { version = "4.0.29", features = ["derive", "env"] }
+log = "0.4"
+regex = "1.5"
+reqwest = { version = "0.11", features = ["json"] }
+rocket = "0.5.0-rc.2"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+simple_logger = "4.0.0"
+strsim = "0.10.0"
