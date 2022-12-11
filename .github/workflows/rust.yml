@@ -58,6 +58,7 @@ jobs:
             ./target
           key: build-cargo-registry-${{matrix.TARGET}}
       - name: Install and configure dependencies
+        shell: bash
         run: |
           if [[ $OS =~ ^ubuntu.*$ ]]; then
             sudo apt-get update
@@ -79,10 +80,13 @@ jobs:
           linker = "arm-linux-gnueabihf-gcc"
           EOF
       - name: Install rust target
+        shell: bash
         run: rustup target add $TARGET
       - name: Run build
+        shell: bash
         run: cargo build --release --verbose --target $TARGET
       - name: Compress
+        shell: bash
         run: |
           mkdir -p ./artifacts
           if [[ $OS =~ ^windows.*$ ]]; then
