@@ -57,11 +57,10 @@ jobs:
             ~/.cargo/registry
             ./target
           key: build-cargo-registry-${{matrix.TARGET}}
-      - name: List
-        run: find ./
       - name: Install and configure dependencies
         run: |
           if [[ $OS =~ ^ubuntu.*$ ]]; then
+            sudo apt-get update
             sudo apt-get install -qq crossbuild-essential-arm64 crossbuild-essential-armhf
           fi
           # some additional configuration for cross-compilation on linux
