@@ -11,21 +11,21 @@ use simple_logger::SimpleLogger;
 use std::net::Ipv4Addr;
 
 #[derive(Parser, Debug)]
-struct PlexAnihookArgs {
+struct AnifunnelArgs {
     /// Anilist API token.
     #[clap(env = "ANILIST_TOKEN")]
     anilist_token: String,
 
     /// IP address to bind the server to.
-    #[clap(long, default_value_t = Ipv4Addr::new(0, 0, 0, 0), env = "ANIHOOK_ADDRESS")]
+    #[clap(long, default_value_t = Ipv4Addr::new(0, 0, 0, 0), env = "ANIFUNNEL_ADDRESS")]
     bind_address: Ipv4Addr,
 
     /// Port to bind the server to.
-    #[clap(long, default_value_t = 8000, env = "ANIHOOK_PORT")]
+    #[clap(long, default_value_t = 8000, env = "ANIFUNNEL_PORT")]
     port: u16,
 }
 
-struct PlexAnihookState {
+struct AnifunnelState {
     token: String,
     user: anilist::User,
 }
@@ -38,7 +38,7 @@ struct ScrobbleForm<'r> {
 #[post("/", data = "<form>")]
 async fn scrobble(
     form: Form<ScrobbleForm<'_>>,
-    state: &rocket::State<PlexAnihookState>,
+    state: &rocket::State<AnifunnelState>,
 ) -> &'static str {
     let webhook: plex::Webhook = match serde_json::from_str(form.payload) {
         Ok(data) => data,
@@ -79,7 +79,7 @@ async fn scrobble(
 
 #[rocket::main]
 async fn main() {
-    let args = PlexAnihookArgs::parse();
+    let args = AnifunnelArgs::parse();
 
     SimpleLogger::new()
         .with_level(LevelFilter::Info)
@@ -95,7 +95,7 @@ async fn main() {
         }
     };
 
-    let state = PlexAnihookState {
+    let state = AnifunnelState {
         token: args.anilist_token,
         user: user,
     };

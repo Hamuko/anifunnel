@@ -31,8 +31,8 @@ RUN apt-get update && apt-get install -y \
 COPY --from=build /anifunnel/target/release/anifunnel .
 
 ENV ANILIST_TOKEN= \
-    BIND_ADDRESS=0.0.0.0 \
-    PORT=8000
+    ANIFUNNEL_ADDRESS=0.0.0.0 \
+    ANIFUNNEL_PORT=8000
 
 EXPOSE 8000
 
