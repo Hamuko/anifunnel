@@ -30,6 +30,17 @@ plex-anihook <ANILIST_TOKEN>
 
 To get complete usage details, run `plex-anihook --help`.
 
+The alternative (and arguably easier) way to run plex-anihook is to use the ready-made Docker image.
+
+```bash
+docker run \
+    -p 8000:8000 \
+    -e "ANILIST_TOKEN=xxx" \
+    ghcr.io/hamuko/plex-anihook:latest
+```
+
+Both `linux/amd64` and `linux/arm64` Docker image variants are available.
+
 ### Enabling webhooks in Plex
 
 In order to send events from Plex to plex-anihook, add the URL where your Plex server can reach plex-anihook in Plex's Webhook settings.
