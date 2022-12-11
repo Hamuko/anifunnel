@@ -23,6 +23,11 @@ RUN cargo build --release --verbose
 
 FROM debian:bullseye-slim
 
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    openssl \
+&& rm -rf /var/lib/apt/lists/*
+
 COPY --from=build /plex-anihook/target/release/plex-anihook .
 
 ENV ANILIST_TOKEN= \
