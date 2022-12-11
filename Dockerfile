@@ -4,16 +4,16 @@ FROM rust:1.65 as build
 
 ENV CARGO_NET_GIT_FETCH_WITH_CLI=true
 
-RUN USER=root cargo new --bin plex-anihook
+RUN USER=root cargo new --bin anifunnel
 
 # Build dependencies separately for layer caching.
-WORKDIR ./plex-anihook
+WORKDIR ./anifunnel
 COPY ./Cargo.lock ./Cargo.lock
 COPY ./Cargo.toml ./Cargo.toml
 RUN cargo build --release
 
 # Clean the temporary project.
-RUN rm src/*.rs ./target/release/deps/plex_anihook*
+RUN rm src/*.rs ./target/release/deps/anifunnel*
 
 ADD . ./
 RUN cargo build --release --verbose
@@ -28,7 +28,7 @@ RUN apt-get update && apt-get install -y \
     openssl \
 && rm -rf /var/lib/apt/lists/*
 
-COPY --from=build /plex-anihook/target/release/plex-anihook .
+COPY --from=build /anifunnel/target/release/anifunnel .
 
 ENV ANILIST_TOKEN= \
     BIND_ADDRESS=0.0.0.0 \
@@ -36,4 +36,4 @@ ENV ANILIST_TOKEN= \
 
 EXPOSE 8000
 
-CMD ["./plex-anihook"]
+CMD ["./anifunnel"]
