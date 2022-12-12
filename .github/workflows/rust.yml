@@ -16,18 +16,32 @@ jobs:
           - TARGET: x86_64-unknown-linux-gnu
             OS: ubuntu-latest
           - TARGET: x86_64-unknown-linux-musl
+            TARGET_CC: x86_64-linux-gnu-gcc
+            TARGET_AR: x86_64-linux-gnu-gcc-ar
             OS: ubuntu-latest
           - TARGET: aarch64-unknown-linux-gnu
+            TARGET_CC: aarch64-linux-gnu-gcc
+            TARGET_AR: aarch64-linux-gnu-gcc-ar
             OS: ubuntu-latest
           - TARGET: aarch64-unknown-linux-musl
+            TARGET_CC: aarch64-linux-gnu-gcc
+            TARGET_AR: aarch64-linux-gnu-gcc-ar
             OS: ubuntu-latest
           - TARGET: armv7-unknown-linux-gnueabihf
+            TARGET_CC: arm-linux-gnueabihf-gcc
+            TARGET_AR: arm-linux-gnueabihf-gcc-ar
             OS: ubuntu-latest
           - TARGET: armv7-unknown-linux-musleabihf
+            TARGET_CC: arm-linux-gnueabihf-gcc
+            TARGET_AR: arm-linux-gnueabihf-gcc-ar
             OS: ubuntu-latest
           - TARGET: arm-unknown-linux-gnueabihf
+            TARGET_CC: arm-linux-gnueabihf-gcc
+            TARGET_AR: arm-linux-gnueabihf-gcc-ar
             OS: ubuntu-latest
           - TARGET: arm-unknown-linux-musleabihf
+            TARGET_CC: arm-linux-gnueabihf-gcc
+            TARGET_AR: arm-linux-gnueabihf-gcc-ar
             OS: ubuntu-latest
           - TARGET: x86_64-apple-darwin
             OS: macos-latest
@@ -39,6 +53,8 @@ jobs:
     env:
       NAME: anifunnel
       TARGET: ${{ matrix.TARGET }}
+      TARGET_CC: ${{ matrix.TARGET_CC }}
+      TARGET_AR: ${{ matrix.TARGET_AR }}
       OS: ${{ matrix.OS }}
     steps:
       - uses: actions/checkout@v2
