@@ -2,6 +2,9 @@
 
 FROM rust:1.65 as build
 
+RUN apt-get update && apt-get install -y ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
 ENV CARGO_NET_GIT_FETCH_WITH_CLI=true
 
 RUN USER=root cargo new --bin anifunnel
@@ -23,10 +26,7 @@ RUN cargo build --release --verbose
 
 FROM debian:bullseye-slim
 
-RUN apt-get update && apt-get install -y \
-    ca-certificates \
-    openssl \
-&& rm -rf /var/lib/apt/lists/*
+COPY --from=build /etc/ssl/certs/ /etc/ssl/certs/
 
 COPY --from=build /anifunnel/target/release/anifunnel .
 
