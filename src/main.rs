@@ -111,3 +111,68 @@ async fn main() {
         .mount("/", routes![scrobble]);
     let _ = rocket.launch().await;
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use rocket::http::{ContentType, Status};
+    use rocket::local::blocking::Client;
+
+    fn build_client() -> Client {
+        let state = AnifunnelState {
+            token: String::from("A"),
+            user: anilist::User {
+                id: 1,
+                name: String::from("A"),
+            },
+        };
+        let rocket = rocket::build().manage(state).mount("/", routes![scrobble]);
+        return Client::tracked(rocket).expect("valid rocket instance");
+    }
+
+    #[test]
+    fn scrobble() {
+        let client = build_client();
+        let response = client
+            .post(uri!(scrobble))
+            .header(ContentType::Form)
+            .body(
+                "payload={\"event\": \"media.scrobble\", \"Metadata\": {\
+                \"type\": \"episode\", \"grandparentTitle\": \"Onii-chan wa Oshimai!\", \
+                \"parentIndex\": 1, \"index\": 2}}",
+            )
+            .dispatch();
+        assert_eq!(response.status(), Status::Ok);
+        assert_eq!(response.into_string().unwrap(), "OK")
+    }
+
+    #[test]
+    fn scrobble_non_actionable() {
+        let client = build_client();
+        let response = client
+            .post(uri!(scrobble))
+            .header(ContentType::Form)
+            .body(
+                "payload={\"event\": \"library.new\", \"Metadata\": {\
+                \"type\": \"episode\", \"grandparentTitle\": \"Onii-chan wa Oshimai!\", \
+                \"parentIndex\": 1, \"index\": 2}}",
+            )
+            .dispatch();
+        assert_eq!(response.status(), Status::Ok);
+        assert_eq!(response.into_string().unwrap(), "NO OP")
+    }
+
+    #[test]
+    fn scrobble_empty_post() {
+        let client = build_client();
+        let response = client.post(uri!(scrobble)).dispatch();
+        assert_eq!(response.status(), Status::NotFound);
+    }
+
+    #[test]
+    fn scrobble_get() {
+        let client = build_client();
+        let response = client.get(uri!(scrobble)).dispatch();
+        assert_eq!(response.status(), Status::NotFound);
+    }
+}

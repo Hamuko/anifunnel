@@ -268,6 +268,7 @@ struct ViewerData {
     Viewer: User,
 }
 
+/// Remove parts of a given string using a collection of regular expressions.
 fn remove_regexes(regexes: &[Regex], string: &String) -> String {
     return regexes
         .iter()
@@ -321,4 +322,114 @@ where
         .send()
         .await
         .map_err(|_| AnilistError::ConnectionError)?);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn fake_media_list(title: &str) -> MediaList {
+        let title = String::from(title);
+        return MediaList {
+            id: 1,
+            progress: 3,
+            media: Media {
+                title: MediaTitle {
+                    romaji: Some(title.clone()),
+                    english: Some(title.clone()),
+                    native: Some(title.clone()),
+                    userPreferred: title.clone(),
+                },
+            },
+        };
+    }
+
+    impl PartialEq for &MediaList {
+        fn eq(&self, other: &Self) -> bool {
+            self.media.title.romaji == other.media.title.romaji
+                && self.media.title.english == other.media.title.english
+                && self.media.title.native == other.media.title.native
+                && self.media.title.userPreferred == other.media.title.userPreferred
+        }
+    }
+
+    #[test]
+    // Test that an exact match is picked over a very close match.
+    fn media_list_group_close_match_exact_match() {
+        let correct_title = "To Aru Kagaku no Railgun";
+        let incorrect_title = "To Aru Kagaku no Railgun S";
+        let search_title = String::from("To Aru Kagaku no Railgun");
+
+        let correct_media_list = fake_media_list(correct_title);
+        let incorrect_media_list = fake_media_list(incorrect_title);
+        let media_list_group = MediaListGroup {
+            entries: vec![incorrect_media_list.clone(), correct_media_list.clone()],
+        };
+
+        let matched = media_list_group.find_match(&search_title).unwrap();
+        assert_eq!(matched, &correct_media_list);
+    }
+
+    #[test]
+    // Test that the fallback fuzzy matching is used when given two strings with
+    // different ways of identifying seasons/parts.
+    fn media_list_group_fuzzy_matching() {
+        let correct_title = "Muv-Luv Alternative Season 2";
+        let incorrect_title = "Muv-Luv Alternative: Total Eclipse";
+        let search_title = String::from("Muv-Luv Alternative (2022)");
+
+        let correct_media_list = fake_media_list(correct_title);
+        let incorrect_media_list = fake_media_list(incorrect_title);
+        let media_list_group = MediaListGroup {
+            entries: vec![incorrect_media_list.clone(), correct_media_list.clone()],
+        };
+
+        let matched = media_list_group.find_match(&search_title).unwrap();
+        assert_eq!(matched, &correct_media_list);
+    }
+
+    #[test]
+    // Test that the better of two close matches is picked.
+    fn media_list_group_multiple_close_matches() {
+        let correct_title = "To Aru Kagaku no Railgun";
+        let incorrect_title = "To Aru Kagaku no Railgun S";
+        let search_title = String::from("Toaru Kagaku no Railgun");
+
+        let correct_media_list = fake_media_list(correct_title);
+        let incorrect_media_list = fake_media_list(incorrect_title);
+        let media_list_group = MediaListGroup {
+            entries: vec![incorrect_media_list.clone(), correct_media_list.clone()],
+        };
+
+        let matched = media_list_group.find_match(&search_title).unwrap();
+        assert_eq!(matched, &correct_media_list);
+    }
+
+    #[test]
+    // Test that no match is returned in case no good match exists.
+    fn media_list_group_no_match() {
+        let incorrect_title = " Soredemo Ayumu wa Yosetekuru";
+        let search_title = String::from("Soredemo Machi wa Mawatteiru");
+
+        let incorrect_media_list = fake_media_list(incorrect_title);
+        let media_list_group = MediaListGroup {
+            entries: vec![incorrect_media_list.clone()],
+        };
+
+        let matched = media_list_group.find_match(&search_title);
+        assert!(matched.is_none());
+    }
+
+    #[test]
+    // Test that remove_regexes() removes given regex patterns from a string.
+    fn regex_removal() {
+        let regexes = [
+            Regex::new(r"\([A-z]+\) ").unwrap(),
+            Regex::new(r"([0-9]+)?(1st|2nd|3rd|[4-90]th) ").unwrap(),
+            Regex::new(r"\.+$").unwrap(),
+        ];
+        let input = String::from("This is (arguably) the day of the 21st century.");
+        let output = remove_regexes(&regexes, &input);
+        assert_eq!(output, "This is the day of the century");
+    }
 }

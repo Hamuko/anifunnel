@@ -31,3 +31,67 @@ pub struct WebhookMetadata {
     #[serde(rename = "index")]
     pub episode_number: i32,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn webhook_actionable() {
+        let webhook = Webhook {
+            event: String::from("media.scrobble"),
+            metadata: WebhookMetadata {
+                media_type: String::from("episode"),
+                title: String::from("Onii-chan wa Oshimai!"),
+                season_number: 1,
+                episode_number: 4,
+            },
+        };
+        assert_eq!(webhook.is_actionable(), true);
+    }
+
+    #[test]
+    // First episodes are not actionable.
+    fn webhook_actionable_first_episode() {
+        let webhook = Webhook {
+            event: String::from("media.scrobble"),
+            metadata: WebhookMetadata {
+                media_type: String::from("episode"),
+                title: String::from("Onii-chan wa Oshimai!"),
+                season_number: 1,
+                episode_number: 1,
+            },
+        };
+        assert_eq!(webhook.is_actionable(), false);
+    }
+
+    #[test]
+    // Music scrobbles are not actionable.
+    fn webhook_actionable_music() {
+        let webhook = Webhook {
+            event: String::from("media.scrobble"),
+            metadata: WebhookMetadata {
+                media_type: String::from("track"),
+                title: String::from("Onii-chan wa Oshimai!"),
+                season_number: 1,
+                episode_number: 4,
+            },
+        };
+        assert_eq!(webhook.is_actionable(), false);
+    }
+
+    #[test]
+    // Only scrobble events trigger anifunnel.
+    fn webhook_actionable_playback() {
+        let webhook = Webhook {
+            event: String::from("media.play"),
+            metadata: WebhookMetadata {
+                media_type: String::from("episode"),
+                title: String::from("Onii-chan wa Oshimai!"),
+                season_number: 1,
+                episode_number: 4,
+            },
+        };
+        assert_eq!(webhook.is_actionable(), false);
+    }
+}
