@@ -1,7 +1,13 @@
-name: Docker
+name: Build Docker image
 
 on:
-  push:
+  workflow_run:
+    workflows:
+      - Test
+    types:
+      - completed
+    branches:
+      - master
 
 env:
   REGISTRY: ghcr.io

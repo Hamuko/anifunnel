@@ -1,8 +1,13 @@
-name: Build
+name: Build binaries
 
 on:
-  push:
-  pull_request:
+  workflow_run:
+    workflows:
+      - Test
+    types:
+      - completed
+    branches:
+      - master
 
 env:
   CARGO_TERM_COLOR: always
