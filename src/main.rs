@@ -23,9 +23,14 @@ struct AnifunnelArgs {
     /// Port to bind the server to.
     #[clap(long, default_value_t = 8000, env = "ANIFUNNEL_PORT")]
     port: u16,
+
+    /// Match against all Plex library seasons. May not accurately find matches.
+    #[arg(long, env = "ANIFUNNEL_MULTI_SEASON")]
+    multi_season: bool,
 }
 
 struct AnifunnelState {
+    multi_season: bool,
     token: String,
     user: anilist::User,
 }
@@ -49,7 +54,7 @@ async fn scrobble(
         }
     };
 
-    if !webhook.is_actionable() {
+    if !webhook.is_actionable(state.multi_season) {
         info!("Webhook is not actionable");
         return "NO OP";
     }
@@ -96,6 +101,7 @@ async fn main() {
     };
 
     let state = AnifunnelState {
+        multi_season: args.multi_season,
         token: args.anilist_token,
         user: user,
     };
@@ -120,6 +126,7 @@ mod test {
 
     fn build_client() -> Client {
         let state = AnifunnelState {
+            multi_season: false,
             token: String::from("A"),
             user: anilist::User {
                 id: 1,

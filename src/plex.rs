@@ -9,10 +9,10 @@ pub struct Webhook {
 }
 
 impl Webhook {
-    pub fn is_actionable(self: &Self) -> bool {
+    pub fn is_actionable(self: &Self, multi_season: bool) -> bool {
         return self.event == "media.scrobble"
             && self.metadata.media_type == "episode"
-            && self.metadata.season_number == 1
+            && (self.metadata.season_number == 1 || multi_season)
             && self.metadata.episode_number > 1;
     }
 }
@@ -47,7 +47,7 @@ mod tests {
                 episode_number: 4,
             },
         };
-        assert_eq!(webhook.is_actionable(), true);
+        assert_eq!(webhook.is_actionable(false), true);
     }
 
     #[test]
@@ -62,7 +62,7 @@ mod tests {
                 episode_number: 1,
             },
         };
-        assert_eq!(webhook.is_actionable(), false);
+        assert_eq!(webhook.is_actionable(false), false);
     }
 
     #[test]
@@ -77,7 +77,7 @@ mod tests {
                 episode_number: 4,
             },
         };
-        assert_eq!(webhook.is_actionable(), false);
+        assert_eq!(webhook.is_actionable(false), false);
     }
 
     #[test]
@@ -92,6 +92,34 @@ mod tests {
                 episode_number: 4,
             },
         };
-        assert_eq!(webhook.is_actionable(), false);
+        assert_eq!(webhook.is_actionable(false), false);
+    }
+
+    #[test]
+    fn webhook_actionable_second_season() {
+        let webhook = Webhook {
+            event: String::from("media.scrobble"),
+            metadata: WebhookMetadata {
+                media_type: String::from("episode"),
+                title: String::from("Kidou Senshi Gundam: Suisei no Majo"),
+                season_number: 2,
+                episode_number: 4,
+            },
+        };
+        assert_eq!(webhook.is_actionable(false), false);
+    }
+
+    #[test]
+    fn webhook_actionable_second_season_multi_season() {
+        let webhook = Webhook {
+            event: String::from("media.scrobble"),
+            metadata: WebhookMetadata {
+                media_type: String::from("episode"),
+                title: String::from("Kidou Senshi Gundam: Suisei no Majo"),
+                season_number: 2,
+                episode_number: 4,
+            },
+        };
+        assert_eq!(webhook.is_actionable(true), true);
     }
 }
