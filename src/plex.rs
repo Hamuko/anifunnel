@@ -12,7 +12,8 @@ impl Webhook {
     pub fn is_actionable(self: &Self, multi_season: bool) -> bool {
         return self.event == "media.scrobble"
             && self.metadata.media_type == "episode"
-            && (self.metadata.season_number == 1 || multi_season)
+            && (self.metadata.season_number == 1
+                || (multi_season && self.metadata.season_number >= 1))
             && self.metadata.episode_number > 1;
     }
 }
@@ -96,6 +97,7 @@ mod tests {
     }
 
     #[test]
+    // Second seasons are not actionable.
     fn webhook_actionable_second_season() {
         let webhook = Webhook {
             event: String::from("media.scrobble"),
@@ -110,6 +112,7 @@ mod tests {
     }
 
     #[test]
+    // Second seasons are actionable with --multi-season.
     fn webhook_actionable_second_season_multi_season() {
         let webhook = Webhook {
             event: String::from("media.scrobble"),
@@ -121,5 +124,35 @@ mod tests {
             },
         };
         assert_eq!(webhook.is_actionable(true), true);
+    }
+
+    #[test]
+    // Specials are not actionable.
+    fn webhook_actionable_special() {
+        let webhook = Webhook {
+            event: String::from("media.scrobble"),
+            metadata: WebhookMetadata {
+                media_type: String::from("episode"),
+                title: String::from("Bakemonogatari"),
+                season_number: 0,
+                episode_number: 3,
+            },
+        };
+        assert_eq!(webhook.is_actionable(false), false);
+    }
+
+    #[test]
+    // Specials are not actionable even with --multi-season.
+    fn webhook_actionable_special_multi_season() {
+        let webhook = Webhook {
+            event: String::from("media.scrobble"),
+            metadata: WebhookMetadata {
+                media_type: String::from("episode"),
+                title: String::from("Bakemonogatari"),
+                season_number: 0,
+                episode_number: 3,
+            },
+        };
+        assert_eq!(webhook.is_actionable(true), false);
     }
 }
