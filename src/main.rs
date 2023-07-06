@@ -2,6 +2,7 @@
 extern crate rocket;
 
 mod anilist;
+mod data;
 mod plex;
 
 use clap::Parser;
@@ -29,21 +30,11 @@ struct AnifunnelArgs {
     multi_season: bool,
 }
 
-struct AnifunnelState {
-    multi_season: bool,
-    token: String,
-    user: anilist::User,
-}
-
-#[derive(Debug, FromForm)]
-struct ScrobbleForm<'r> {
-    payload: &'r str,
-}
 
 #[post("/", data = "<form>")]
 async fn scrobble(
-    form: Form<ScrobbleForm<'_>>,
-    state: &rocket::State<AnifunnelState>,
+    form: Form<data::forms::Scrobble<'_>>,
+    state: &rocket::State<data::state::Global>,
 ) -> &'static str {
     let webhook: plex::Webhook = match serde_json::from_str(form.payload) {
         Ok(data) => data,
@@ -100,7 +91,7 @@ async fn main() {
         }
     };
 
-    let state = AnifunnelState {
+    let state = data::state::Global {
         multi_season: args.multi_season,
         token: args.anilist_token,
         user: user,
@@ -125,7 +116,7 @@ mod test {
     use rocket::local::blocking::Client;
 
     fn build_client() -> Client {
-        let state = AnifunnelState {
+        let state = data::state::Global {
             multi_season: false,
             token: String::from("A"),
             user: anilist::User {
