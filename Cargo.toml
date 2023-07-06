@@ -19,3 +19,6 @@ reqwest = { version = "0.11", default-features = false, features = ["json", "rus
 
 [target.'cfg(not(target_os = "linux"))'.dependencies]
 reqwest = { version = "0.11", default-features = false, features = ["json", "default-tls"] }
+
+[dev-dependencies]
+test-case = "3.1"

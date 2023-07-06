@@ -112,6 +112,16 @@ pub struct MediaListGroup {
 }
 
 impl MediaListGroup {
+    pub fn find_id(self: &Self, id: &i32) -> Option<&MediaList> {
+        debug!("Matching ID \"{}\"", &id);
+        for media_list in self.entries.iter() {
+            if &media_list.id == id {
+                return Some(media_list);
+            }
+        }
+        return None;
+    }
+
     pub fn find_match(self: &Self, title: &String) -> Option<&MediaList> {
         let match_title = title.to_lowercase();
         debug!("Matching title \"{}\"", &match_title);
@@ -328,10 +338,12 @@ where
 mod tests {
     use super::*;
 
-    fn fake_media_list(title: &str) -> MediaList {
+    use test_case::test_case;
+
+    fn fake_media_list(id: i32, title: &str) -> MediaList {
         let title = String::from(title);
         return MediaList {
-            id: 1,
+            id,
             progress: 3,
             media: Media {
                 title: MediaTitle {
@@ -353,6 +365,23 @@ mod tests {
         }
     }
 
+    #[test_case(146065, Some("Mushoku Tensei II") ; "valid ID")]
+    #[test_case(163132, Some("Horimiya -piece-") ; "also valid ID")]
+    #[test_case(163133, None ; "invalid ID")]
+    fn media_list_group_get_id(id: i32, expected: Option<&str>) {
+        let correct_media_list = fake_media_list(146065, "Mushoku Tensei II");
+        let incorrect_media_list = fake_media_list(163132, "Horimiya -piece-");
+        let media_list_group = MediaListGroup {
+            entries: vec![incorrect_media_list.clone(), correct_media_list.clone()],
+        };
+
+        let matched = media_list_group.find_id(&id);
+        assert_eq!(
+            matched.map(|x| x.media.title.userPreferred.clone()),
+            expected.map(|x| x.to_string())
+        );
+    }
+
     #[test]
     // Test that an exact match is picked over a very close match.
     fn media_list_group_close_match_exact_match() {
@@ -360,8 +389,8 @@ mod tests {
         let incorrect_title = "To Aru Kagaku no Railgun S";
         let search_title = String::from("To Aru Kagaku no Railgun");
 
-        let correct_media_list = fake_media_list(correct_title);
-        let incorrect_media_list = fake_media_list(incorrect_title);
+        let correct_media_list = fake_media_list(146065, correct_title);
+        let incorrect_media_list = fake_media_list(5678, incorrect_title);
         let media_list_group = MediaListGroup {
             entries: vec![incorrect_media_list.clone(), correct_media_list.clone()],
         };
@@ -378,8 +407,8 @@ mod tests {
         let incorrect_title = "Muv-Luv Alternative: Total Eclipse";
         let search_title = String::from("Muv-Luv Alternative (2022)");
 
-        let correct_media_list = fake_media_list(correct_title);
-        let incorrect_media_list = fake_media_list(incorrect_title);
+        let correct_media_list = fake_media_list(1234, correct_title);
+        let incorrect_media_list = fake_media_list(5678, incorrect_title);
         let media_list_group = MediaListGroup {
             entries: vec![incorrect_media_list.clone(), correct_media_list.clone()],
         };
@@ -395,8 +424,8 @@ mod tests {
         let incorrect_title = "To Aru Kagaku no Railgun S";
         let search_title = String::from("Toaru Kagaku no Railgun");
 
-        let correct_media_list = fake_media_list(correct_title);
-        let incorrect_media_list = fake_media_list(incorrect_title);
+        let correct_media_list = fake_media_list(1234, correct_title);
+        let incorrect_media_list = fake_media_list(5678, incorrect_title);
         let media_list_group = MediaListGroup {
             entries: vec![incorrect_media_list.clone(), correct_media_list.clone()],
         };
@@ -411,7 +440,7 @@ mod tests {
         let incorrect_title = " Soredemo Ayumu wa Yosetekuru";
         let search_title = String::from("Soredemo Machi wa Mawatteiru");
 
-        let incorrect_media_list = fake_media_list(incorrect_title);
+        let incorrect_media_list = fake_media_list(1234, incorrect_title);
         let media_list_group = MediaListGroup {
             entries: vec![incorrect_media_list.clone()],
         };
