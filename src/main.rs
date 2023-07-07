@@ -10,6 +10,7 @@ use log::{debug, error, info, warn, LevelFilter};
 use rocket::form::Form;
 use simple_logger::SimpleLogger;
 use std::net::Ipv4Addr;
+use tokio::sync::RwLock;
 
 #[derive(Parser, Debug)]
 struct AnifunnelArgs {
@@ -95,6 +96,8 @@ async fn main() {
         multi_season: args.multi_season,
         token: args.anilist_token,
         user: user,
+        title_overrides: RwLock::new(data::state::TitleOverrides::new()),
+        episode_offsets: RwLock::new(data::state::EpisodeOverrides::new()),
     };
 
     // Launch the web server.
@@ -112,6 +115,7 @@ async fn main() {
 #[cfg(test)]
 mod test {
     use super::*;
+
     use rocket::http::{ContentType, Status};
     use rocket::local::blocking::Client;
 
@@ -123,6 +127,8 @@ mod test {
                 id: 1,
                 name: String::from("A"),
             },
+            title_overrides: RwLock::new(data::state::TitleOverrides::new()),
+            episode_offsets: RwLock::new(data::state::EpisodeOverrides::new()),
         };
         let rocket = rocket::build().manage(state).mount("/", routes![scrobble]);
         return Client::tracked(rocket).expect("valid rocket instance");
