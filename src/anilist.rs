@@ -57,7 +57,7 @@ pub struct Media {
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct MediaList {
-    id: i32,
+    pub id: i32,
     pub progress: i32,
     pub media: Media,
 }

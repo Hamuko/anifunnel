@@ -52,7 +52,12 @@ async fn scrobble(
     }
 
     if let Ok(media_list_entries) = anilist::get_watching_list(&state.token, &state.user).await {
-        let matched_media_list = match media_list_entries.find_match(&webhook.metadata.title) {
+        let title_overrides = state.title_overrides.read().await;
+        let matched_media_list = match title_overrides.get(&webhook.metadata.title) {
+            Some(id) => media_list_entries.find_id(&id),
+            None => media_list_entries.find_match(&webhook.metadata.title),
+        };
+        let matched_media_list = match matched_media_list {
             Some(media_list) => media_list,
             None => {
                 debug!("Could not find a match for '{}'", &webhook.metadata.title);
@@ -60,7 +65,9 @@ async fn scrobble(
             }
         };
         debug!("Processing {}", matched_media_list);
-        if webhook.metadata.episode_number == matched_media_list.progress + 1 {
+        let episode_offsets = state.episode_offsets.read().await;
+        let episode_offset = episode_offsets.get(&matched_media_list.id).unwrap_or(0);
+        if webhook.metadata.episode_number + episode_offset == matched_media_list.progress + 1 {
             match matched_media_list.update(&state.token).await {
                 Ok(true) => info!("Updated '{}' progress", matched_media_list.media.title),
                 Ok(false) => error!(
