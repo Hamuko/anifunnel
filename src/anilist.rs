@@ -150,6 +150,13 @@ impl MediaListGroup {
         }
         return None;
     }
+
+    pub fn get_context_values<'a>(self: &'a Self) -> impl Iterator<Item = (i32, String)> + 'a {
+        return self
+            .entries
+            .iter()
+            .map(|x| (x.id, x.media.title.userPreferred.clone()));
+    }
 }
 
 #[allow(non_snake_case)]
@@ -363,6 +370,25 @@ mod tests {
                 && self.media.title.native == other.media.title.native
                 && self.media.title.userPreferred == other.media.title.userPreferred
         }
+    }
+
+    #[test]
+    fn media_list_group_get_context_values() {
+        let media_list_group = MediaListGroup {
+            entries: vec![
+                fake_media_list(146065, "Mushoku Tensei II"),
+                fake_media_list(163132, "Horimiya -piece-"),
+            ],
+        };
+
+        let values: Vec<(i32, String)> = media_list_group.get_context_values().collect();
+        assert_eq!(
+            values,
+            vec![
+                (146065, String::from("Mushoku Tensei II")),
+                (163132, String::from("Horimiya -piece-"))
+            ]
+        );
     }
 
     #[test_case(146065, Some("Mushoku Tensei II") ; "valid ID")]

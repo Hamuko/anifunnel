@@ -1,7 +1,102 @@
+pub mod context {
+    use serde::Serialize;
+
+    use crate::anilist;
+    use crate::data::state;
+
+    #[derive(Serialize)]
+    pub struct Anime {
+        pub id: i32,
+        pub title: String,
+        pub episode_offset: Option<i32>,
+        pub title_override: Option<String>,
+    }
+
+    impl Anime {
+        pub fn build(
+            media_list_group: &anilist::MediaListGroup,
+            title_overrides: &state::TitleOverrides,
+            episode_offsets: &state::EpisodeOverrides,
+        ) -> Vec<Self> {
+            let mut result: Vec<Self> = Vec::new();
+            for (id, title) in media_list_group.get_context_values() {
+                let title_override = title_overrides.get_key(&id);
+                let episode_offset = episode_offsets.get(&id);
+                result.push(Self {
+                    id,
+                    title,
+                    episode_offset,
+                    title_override,
+                });
+            }
+            result.sort_by(|a, b| a.title.cmp(&b.title));
+            return result;
+        }
+    }
+}
+
 pub mod forms {
     #[derive(Debug, FromForm)]
     pub struct Scrobble<'r> {
         pub payload: &'r str,
+    }
+
+    #[derive(Debug, FromForm)]
+    pub struct AnimeOverride<'r> {
+        pub episode_offset: Option<i32>,
+        pub title: Option<&'r str>,
+    }
+
+    impl AnimeOverride<'_> {
+        /// Retrieve a usable episode offset value.
+        pub fn get_episode_offset(self: &Self) -> Option<i32> {
+            if let Some(episode_offset) = self.episode_offset {
+                if episode_offset != 0 {
+                    return Some(episode_offset);
+                }
+            }
+            return None;
+        }
+
+        /// Retrieve a usable title value.
+        pub fn get_title(self: &Self) -> Option<&str> {
+            if let Some(title) = self.title {
+                if title != "" {
+                    return Some(title);
+                }
+            }
+            return None;
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use crate::data::forms::AnimeOverride;
+
+        use test_case::test_case;
+
+        #[test_case(Some(0), None ; "zero episode offset")]
+        #[test_case(Some(1), Some(1) ; "positive episode offset")]
+        #[test_case(Some(-12), Some(-12) ; "negative episode offset")]
+        #[test_case(None, None ; "no episode offset")]
+        fn episode_offset(value: Option<i32>, expected: Option<i32>) {
+            let anime_override = AnimeOverride {
+                episode_offset: value,
+                title: None,
+            };
+            assert_eq!(anime_override.get_episode_offset(), expected);
+        }
+
+        #[test_case(Some(""), None ; "empty title")]
+        #[test_case(Some("title"), Some("title") ; "valid title")]
+        #[test_case(None, None ; "no title")]
+        fn title(value: Option<&str>, expected: Option<&str>) {
+            let anime_override = AnimeOverride {
+                episode_offset: None,
+                title: value,
+            };
+            assert_eq!(anime_override.get_title(), expected);
+        }
     }
 }
 
