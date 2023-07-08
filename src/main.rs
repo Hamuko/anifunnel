@@ -13,6 +13,7 @@ use rocket::response::Redirect;
 use rocket_dyn_templates::{context, Template};
 use simple_logger::SimpleLogger;
 use std::{net::Ipv4Addr, vec};
+use tempfile::tempdir;
 use tokio::sync::RwLock;
 
 #[derive(Parser, Debug)]
@@ -43,7 +44,7 @@ async fn management(state: &rocket::State<data::state::Global>) -> Template {
         Err(_) => vec![],
     };
     Template::render(
-        "management",
+        "management.html",
         context! {
             watching_list: watching_list,
         },
@@ -153,16 +154,27 @@ async fn main() {
         episode_offsets: RwLock::new(data::state::EpisodeOverrides::new()),
     };
 
+    // Because Rocket *requires* a template directory even though we are embedding our
+    // single template inside the binary, we need to make a dummy directory for anifunnel.
+    let dir = tempdir().unwrap();
+
     // Launch the web server.
-    let rocket_config = rocket::Config {
-        port: args.port,
-        address: args.bind_address.into(),
-        ..rocket::Config::debug_default()
-    };
-    let rocket = rocket::custom(&rocket_config)
+    let figment = rocket::Config::figment()
+        .merge(("port", args.port))
+        .merge(("address", args.bind_address))
+        .merge(("template_dir", dir.path()));
+    let rocket = rocket::custom(figment)
         .manage(state)
         .mount("/", routes![scrobble, management, management_edit])
-        .attach(Template::fairing());
+        .attach(Template::custom(|engines| {
+            engines
+                .tera
+                .add_raw_template(
+                    "management.html",
+                    include_str!("../templates/management.html.tera"),
+                )
+                .expect("Could not load management template");
+        }));
     let _ = rocket.launch().await;
 }
 
