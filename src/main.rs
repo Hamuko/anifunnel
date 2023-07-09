@@ -79,6 +79,11 @@ async fn management_edit(
     Redirect::to(uri!(management))
 }
 
+#[get("/")]
+async fn management_redirect() -> Redirect {
+    Redirect::to(uri!(management))
+}
+
 #[post("/", data = "<form>")]
 async fn scrobble(
     form: Form<data::forms::Scrobble<'_>>,
@@ -165,7 +170,10 @@ async fn main() {
         .merge(("template_dir", dir.path()));
     let rocket = rocket::custom(figment)
         .manage(state)
-        .mount("/", routes![scrobble, management, management_edit])
+        .mount(
+            "/",
+            routes![scrobble, management, management_edit, management_redirect],
+        )
         .attach(Template::custom(|engines| {
             engines
                 .tera
@@ -199,7 +207,7 @@ mod test {
         };
         let rocket = rocket::build()
             .manage(state)
-            .mount("/", routes![scrobble, management_edit]);
+            .mount("/", routes![scrobble, management_edit, management_redirect]);
         return Client::tracked(rocket).expect("valid rocket instance");
     }
 
@@ -270,6 +278,14 @@ mod test {
     }
 
     #[test]
+    fn management_redirect() {
+        let client = build_client();
+        let response = client.get(uri!(management_redirect)).dispatch();
+        assert_eq!(response.status(), Status::SeeOther);
+        assert_eq!(response.headers().get_one("Location"), Some("/admin"));
+    }
+
+    #[test]
     fn scrobble() {
         let client = build_client();
         let response = client
@@ -305,13 +321,6 @@ mod test {
     fn scrobble_empty_post() {
         let client = build_client();
         let response = client.post(uri!(scrobble)).dispatch();
-        assert_eq!(response.status(), Status::NotFound);
-    }
-
-    #[test]
-    fn scrobble_get() {
-        let client = build_client();
-        let response = client.get(uri!(scrobble)).dispatch();
         assert_eq!(response.status(), Status::NotFound);
     }
 }
