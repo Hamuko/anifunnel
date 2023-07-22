@@ -202,11 +202,12 @@ impl MediaTitle {
         // Levenshtein distance with cleaned up comparison to get rid of common
         // suffixes that might alter between AniDB and local libraries.
         let massaging_regexes = [
-            Regex::new(r" \(?20[2-4]\d\)?$").unwrap(), // XXX (2023)
-            Regex::new(r" \(?cour \d\)?$").unwrap(),   // XXX Cour 2, XXX (Cour 2)
-            Regex::new(r" \(?season \d\)?$").unwrap(), // XXX Season 2, XXX (Season 2)
-            Regex::new(r" \(?part \d\)?$").unwrap(),   // XXX Part 2, XXX (Part 2)
-            Regex::new(r" \d$").unwrap(),              // XXX 2
+            Regex::new(r" \(?20[2-4]\d\)?$").unwrap(),      // XXX (2023)
+            Regex::new(r" \d+(st|nd|rd|th) season$").unwrap(), // XXX 2nd Season
+            Regex::new(r" \(?cour \d\)?$").unwrap(),        // XXX Cour 2, XXX (Cour 2)
+            Regex::new(r" \(?season \d\)?$").unwrap(),      // XXX Season 2, XXX (Season 2)
+            Regex::new(r" \(?part \d\)?$").unwrap(),        // XXX Part 2, XXX (Part 2)
+            Regex::new(r" \d$").unwrap(),                   // XXX 2
         ];
         let massaged_string = remove_regexes(&massaging_regexes, string);
         debug!("Matching fallback title \"{}\"", &massaged_string);
@@ -432,6 +433,22 @@ mod tests {
         let correct_title = "Muv-Luv Alternative Season 2";
         let incorrect_title = "Muv-Luv Alternative: Total Eclipse";
         let search_title = String::from("Muv-Luv Alternative (2022)");
+
+        let correct_media_list = fake_media_list(1234, correct_title);
+        let incorrect_media_list = fake_media_list(5678, incorrect_title);
+        let media_list_group = MediaListGroup {
+            entries: vec![incorrect_media_list.clone(), correct_media_list.clone()],
+        };
+
+        let matched = media_list_group.find_match(&search_title).unwrap();
+        assert_eq!(matched, &correct_media_list);
+    }
+
+    #[test]
+    fn media_list_group_fuzzy_matching_nth_season() {
+        let correct_title = "Kanojo, Okarishimasu 3rd Season";
+        let incorrect_title = "Kanojo mo Kanojo";
+        let search_title = String::from("Kanojo, Okarishimasu (2023)");
 
         let correct_media_list = fake_media_list(1234, correct_title);
         let incorrect_media_list = fake_media_list(5678, incorrect_title);
