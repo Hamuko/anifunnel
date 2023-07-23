@@ -51,6 +51,10 @@ For more information, see https://support.plex.tv/articles/115002267687-webhooks
 
 Note that webhooks require a Plex Pass subscription.
 
+### Multi-season shows
+
+By default, anifunnel does not process episodes beyond the first season of a show. This is intentionally done as concatenating multiple different Anilist entries into a single Plex entry will reduce the likelihood that matching will succeed. If you want to enable multi-season matching anyways, you can use the `--multi-season` flag. Doing so will cause anifunnel to ignore Plex season numbers.
+
 ## Disclaimer
 
 This project is not associated or affiliated with Plex or Anilist in any way or form.
