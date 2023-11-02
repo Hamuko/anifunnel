@@ -10,6 +10,8 @@ The updating logic is rather conservative: the anime must be found within your w
 
 anifunnel implements fuzzy matching logic to allow the updating the work even if the titles aren't an exact match between your Plex library and Anilist. So for example "Boku no Hero Academia 6" can be matched against "Boku no Hero Academia (2022)" and "Uzaki-chan wa Asobitai! ω" can be matched against "Uzaki-chan wa Asobitai! Double".
 
+It's also possible to customise the management logic on a per-anime basis for tricky edge cases using a management interface.
+
 ## Usage
 
 ### Authorization
@@ -54,6 +56,12 @@ Note that webhooks require a Plex Pass subscription.
 ### Multi-season shows
 
 By default, anifunnel does not process episodes beyond the first season of a show. This is intentionally done as concatenating multiple different Anilist entries into a single Plex entry will reduce the likelihood that matching will succeed. If you want to enable multi-season matching anyways, you can use the `--multi-season` flag. Doing so will cause anifunnel to ignore Plex season numbers.
+
+### Management interface
+
+You can customise the anime title and episode number matching logic for anifunnel using the management interface. You can reach the management interface by going to `/admin` (or `/`, which will redirect to the correct URL) using your browser. anifunnel will load your watching list from Anilist and allow setting a custom title (exact match) and/or an episode offset.
+
+**Important:** These overrides are currently stored in-memory only and will disappear once anifunnel is terminated. You will need to redo any applicable overrides after starting anifunnel up again.
 
 ## Disclaimer
 
