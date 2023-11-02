@@ -13,8 +13,7 @@ impl Webhook {
         return self.event == "media.scrobble"
             && self.metadata.media_type == "episode"
             && (self.metadata.season_number == 1
-                || (multi_season && self.metadata.season_number >= 1))
-            && self.metadata.episode_number > 1;
+                || (multi_season && self.metadata.season_number >= 1));
     }
 }
 
@@ -52,7 +51,7 @@ mod tests {
     }
 
     #[test]
-    // First episodes are not actionable.
+    // First episodes are also actionable to allow for offsets.
     fn webhook_actionable_first_episode() {
         let webhook = Webhook {
             event: String::from("media.scrobble"),
@@ -63,7 +62,7 @@ mod tests {
                 episode_number: 1,
             },
         };
-        assert_eq!(webhook.is_actionable(false), false);
+        assert_eq!(webhook.is_actionable(false), true);
     }
 
     #[test]
