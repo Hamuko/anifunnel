@@ -145,6 +145,13 @@ async fn main() {
 
     let user = match anilist::get_user(&args.anilist_token).await {
         Ok(user) => user,
+        Err(anilist::AnilistError::InvalidToken) => {
+            error!(
+                "Invalid token. Ensure that you have a valid token. \
+                Tokens are valid for up to one year from authorization."
+            );
+            return ();
+        }
         Err(_) => {
             error!("Could not retrieve Anilist user.");
             return ();

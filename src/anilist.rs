@@ -48,6 +48,7 @@ pub enum AnilistError {
     RequestDataError,
     ConnectionError,
     ParsingError,
+    InvalidToken,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -243,6 +244,16 @@ struct QueryResponse<T> {
 }
 
 #[derive(Debug, Deserialize)]
+struct ErrorResponse {
+    errors: Option<Vec<Error>>,
+}
+
+#[derive(Debug, Deserialize)]
+struct Error {
+    message: String,
+}
+
+#[derive(Debug, Deserialize)]
 struct SaveMediaListEntry {
     progress: i32,
 }
@@ -258,10 +269,20 @@ impl<T> QueryResponse<T> {
     where
         T: for<'a> Deserialize<'a>,
     {
+        let status_code = response.status();
         let response_body = response
             .text()
             .await
             .map_err(|_| AnilistError::RequestDataError)?;
+        if status_code == 400 {
+            if let Ok(error_response) = serde_json::from_str::<ErrorResponse>(&response_body) {
+                for error in error_response.errors.iter().flatten() {
+                    if error.message == "Invalid token" {
+                        return Err(AnilistError::InvalidToken);
+                    }
+                }
+            }
+        }
         let query_response: QueryResponse<T> = match serde_json::from_str(&response_body) {
             Ok(response) => response,
             Err(error) => {
