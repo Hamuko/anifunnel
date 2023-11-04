@@ -1,6 +1,6 @@
 # BUILD CONTAINER
 
-FROM rust:1.65 as build
+FROM rust:1.73 as build
 
 RUN apt-get update && apt-get install -y ca-certificates \
     && rm -rf /var/lib/apt/lists/*
@@ -24,7 +24,7 @@ RUN cargo build --release --verbose
 
 # RUNTIME CONTAINER
 
-FROM debian:bullseye-slim
+FROM debian:bookworm-slim
 
 COPY --from=build /etc/ssl/certs/ /etc/ssl/certs/
 
