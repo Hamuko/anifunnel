@@ -328,6 +328,6 @@ mod test {
     fn scrobble_empty_post() {
         let client = build_client();
         let response = client.post(uri!(scrobble)).dispatch();
-        assert_eq!(response.status(), Status::NotFound);
+        assert_eq!(response.status(), Status::UnsupportedMediaType);
     }
 }
