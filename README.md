@@ -4,13 +4,13 @@ Plex webhook service to automatically update your Anilist watching list.
 
 ## Description
 
-anifunnel is a web server that will consume incoming Plex webhooks and update your Anilist watching list whenever you finish watching an episode.
+anifunnel is a web server that will consume incoming Plex webhooks and update your Anilist watching list whenever you finish watching an episode. Due to this design, anifunnel only needs to authenticate against Anilist and doesn't require access to your Plex instance. It's also written in Rust to aim for relatively low system resource usage.
 
 The updating logic is rather conservative: the anime must be found within your watching list, and must have a matching episode count. So if you watch the first episode of a show, it will not add the show to your watching list on your own. Likewise, if you watch episode six of a show that matches a title where you have only the first two episodes marked as watched, it will also not update it, as it's looking for an anime that is at five episodes watched.
 
 anifunnel implements fuzzy matching logic to allow the updating the work even if the titles aren't an exact match between your Plex library and Anilist. So for example "Boku no Hero Academia 6" can be matched against "Boku no Hero Academia (2022)" and "Uzaki-chan wa Asobitai! ω" can be matched against "Uzaki-chan wa Asobitai! Double".
 
-It's also possible to customise the management logic on a per-anime basis for tricky edge cases using a management interface.
+It's also possible to customise the matching logic on a per-anime basis for tricky edge cases using a management interface.
 
 ## Usage
 
@@ -55,7 +55,7 @@ Note that webhooks require a Plex Pass subscription.
 
 ### Multi-season shows
 
-By default, anifunnel does not process episodes beyond the first season of a show. This is intentionally done as concatenating multiple different Anilist entries into a single Plex entry will reduce the likelihood that matching will succeed. If you want to enable multi-season matching anyways, you can use the `--multi-season` flag. Doing so will cause anifunnel to ignore Plex season numbers.
+By default, anifunnel does not process episodes beyond the first season of a show. This is intentionally done as concatenating multiple different Anilist entries into a single Plex entry will reduce the likelihood that matching will succeed. If you want to enable multi-season matching anyways, you can use the `--multi-season` flag. Doing so will cause anifunnel to ignore Plex season numbers. For Docker, you can use the `ANIFUNNEL_MULTI_SEASON` environment variable.
 
 ### Management interface
 
