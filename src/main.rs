@@ -8,6 +8,7 @@ mod plex;
 use clap::Parser;
 use data::context::Anime;
 use log::{debug, error, info, warn, LevelFilter};
+use rocket::data::{Limits, ToByteUnit};
 use rocket::form::Form;
 use rocket::response::Redirect;
 use rocket_dyn_templates::{context, Template};
@@ -170,8 +171,14 @@ async fn main() {
     // single template inside the binary, we need to make a dummy directory for anifunnel.
     let dir = tempdir().unwrap();
 
+    // Increase the string limit from default since Plex might send the thumbnail in some
+    // requests and we don't want those to cause unnecessary HTTP 413 Content Too Large
+    // errors (even though we don't use those requests).
+    let limits = Limits::default().limit("string", 24.kibibytes());
+
     // Launch the web server.
     let figment = rocket::Config::figment()
+        .merge(("limits", limits))
         .merge(("port", args.port))
         .merge(("address", args.bind_address))
         .merge(("template_dir", dir.path()));
