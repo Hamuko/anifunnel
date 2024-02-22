@@ -1,4 +1,4 @@
-# anifunnel
+![anifunnel](https://burakku.com/projects/anifunnel/banner.png)
 
 Plex webhook service to automatically update your Anilist watching list.
 
