@@ -63,6 +63,10 @@ You can customise the anime title and episode number matching logic for anifunne
 
 **Important:** These overrides are currently stored in-memory only and will disappear once anifunnel is terminated. You will need to redo any applicable overrides after starting anifunnel up again.
 
+### Username filtering
+
+anifunnel processes events for all Plex users by default. If you are using a multi-user Plex instance, you can limit processing of webhook events to a single user with the `--plex-user` argument / `ANILIST_PLEX_USER` environment variable.
+
 ## Disclaimer
 
 This project is not associated or affiliated with Plex or Anilist in any way or form.

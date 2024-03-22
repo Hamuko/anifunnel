@@ -4,6 +4,9 @@ use serde::Deserialize;
 pub struct Webhook {
     event: String,
 
+    #[serde(rename = "Account")]
+    pub account: WebhookAccount,
+
     #[serde(rename = "Metadata")]
     pub metadata: WebhookMetadata,
 }
@@ -15,6 +18,12 @@ impl Webhook {
             && (self.metadata.season_number == 1
                 || (multi_season && self.metadata.season_number >= 1));
     }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct WebhookAccount {
+    #[serde(rename = "title")]
+    pub name: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -40,6 +49,7 @@ mod tests {
     fn webhook_actionable() {
         let webhook = Webhook {
             event: String::from("media.scrobble"),
+            account: WebhookAccount { name: String::from("yukikaze") },
             metadata: WebhookMetadata {
                 media_type: String::from("episode"),
                 title: String::from("Onii-chan wa Oshimai!"),
@@ -55,6 +65,7 @@ mod tests {
     fn webhook_actionable_first_episode() {
         let webhook = Webhook {
             event: String::from("media.scrobble"),
+            account: WebhookAccount { name: String::from("yukikaze") },
             metadata: WebhookMetadata {
                 media_type: String::from("episode"),
                 title: String::from("Onii-chan wa Oshimai!"),
@@ -70,6 +81,7 @@ mod tests {
     fn webhook_actionable_music() {
         let webhook = Webhook {
             event: String::from("media.scrobble"),
+            account: WebhookAccount { name: String::from("yukikaze") },
             metadata: WebhookMetadata {
                 media_type: String::from("track"),
                 title: String::from("Onii-chan wa Oshimai!"),
@@ -85,6 +97,7 @@ mod tests {
     fn webhook_actionable_playback() {
         let webhook = Webhook {
             event: String::from("media.play"),
+            account: WebhookAccount { name: String::from("yukikaze") },
             metadata: WebhookMetadata {
                 media_type: String::from("episode"),
                 title: String::from("Onii-chan wa Oshimai!"),
@@ -100,6 +113,7 @@ mod tests {
     fn webhook_actionable_second_season() {
         let webhook = Webhook {
             event: String::from("media.scrobble"),
+            account: WebhookAccount { name: String::from("yukikaze") },
             metadata: WebhookMetadata {
                 media_type: String::from("episode"),
                 title: String::from("Kidou Senshi Gundam: Suisei no Majo"),
@@ -115,6 +129,7 @@ mod tests {
     fn webhook_actionable_second_season_multi_season() {
         let webhook = Webhook {
             event: String::from("media.scrobble"),
+            account: WebhookAccount { name: String::from("yukikaze") },
             metadata: WebhookMetadata {
                 media_type: String::from("episode"),
                 title: String::from("Kidou Senshi Gundam: Suisei no Majo"),
@@ -130,6 +145,7 @@ mod tests {
     fn webhook_actionable_special() {
         let webhook = Webhook {
             event: String::from("media.scrobble"),
+            account: WebhookAccount { name: String::from("yukikaze") },
             metadata: WebhookMetadata {
                 media_type: String::from("episode"),
                 title: String::from("Bakemonogatari"),
@@ -145,6 +161,7 @@ mod tests {
     fn webhook_actionable_special_multi_season() {
         let webhook = Webhook {
             event: String::from("media.scrobble"),
+            account: WebhookAccount { name: String::from("yukikaze") },
             metadata: WebhookMetadata {
                 media_type: String::from("episode"),
                 title: String::from("Bakemonogatari"),

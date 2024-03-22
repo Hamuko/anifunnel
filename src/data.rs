@@ -110,6 +110,7 @@ pub mod state {
     pub struct Global {
         pub multi_season: bool,
         pub token: String,
+        pub plex_user: Option<String>,
         pub user: anilist::User,
         pub title_overrides: RwLock<TitleOverrides>,
         pub episode_offsets: RwLock<EpisodeOverrides>,

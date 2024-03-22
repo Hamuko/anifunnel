@@ -34,6 +34,10 @@ struct AnifunnelArgs {
     /// Match against all Plex library seasons. May not accurately find matches.
     #[arg(long, env = "ANIFUNNEL_MULTI_SEASON")]
     multi_season: bool,
+
+    /// Only process updates from a specific Plex username.
+    #[clap(long, env = "ANILIST_PLEX_USER")]
+    plex_user: Option<String>
 }
 
 #[get("/admin")]
@@ -104,6 +108,16 @@ async fn scrobble(
         return "NO OP";
     }
 
+    // Check possible Plex username restriction.
+    if let Some(plex_user) = &state.plex_user {
+        if plex_user == &webhook.account.name {
+            debug!("Update matches Plex username restriction '{}'", plex_user);
+        } else {
+            info!("Ignoring update for Plex user '{}'", webhook.account.name);
+            return "NO OP";
+        }
+    }
+
     if let Ok(media_list_entries) = anilist::get_watching_list(&state.token, &state.user).await {
         let title_overrides = state.title_overrides.read().await;
         let matched_media_list = match title_overrides.get(&webhook.metadata.title) {
@@ -161,6 +175,7 @@ async fn main() {
 
     let state = data::state::Global {
         multi_season: args.multi_season,
+        plex_user: args.plex_user,
         token: args.anilist_token,
         user: user,
         title_overrides: RwLock::new(data::state::TitleOverrides::new()),
@@ -211,6 +226,7 @@ mod test {
     fn build_client() -> Client {
         let state = data::state::Global {
             multi_season: false,
+            plex_user: None,
             token: String::from("A"),
             user: anilist::User {
                 id: 1,
@@ -308,11 +324,40 @@ mod test {
             .body(
                 "payload={\"event\": \"media.scrobble\", \"Metadata\": {\
                 \"type\": \"episode\", \"grandparentTitle\": \"Onii-chan wa Oshimai!\", \
-                \"parentIndex\": 1, \"index\": 2}}",
+                \"parentIndex\": 1, \"index\": 2}, \"Account\": {\"title\": \"yukikaze\"}}",
             )
             .dispatch();
         assert_eq!(response.status(), Status::Ok);
         assert_eq!(response.into_string().unwrap(), "OK")
+    }
+
+    #[test_case("yukikaze", "OK" ; "correct username")]
+    #[test_case("shiranui", "NO OP" ; "incorrect username")]
+    fn scrobble_username_filter(plex_user: &str, expected_response: &str) {
+        let state = data::state::Global {
+            multi_season: false,
+            plex_user: Some(String::from(plex_user)),
+            token: String::from("A"),
+            user: anilist::User {
+                id: 1,
+                name: String::from("A"),
+            },
+            title_overrides: RwLock::new(data::state::TitleOverrides::new()),
+            episode_offsets: RwLock::new(data::state::EpisodeOverrides::new()),
+        };
+        let rocket = rocket::build().manage(state).mount("/", routes![scrobble]);
+        let client = Client::tracked(rocket).expect("valid rocket instance");
+        let response = client
+            .post(uri!(scrobble))
+            .header(ContentType::Form)
+            .body(
+                "payload={\"event\": \"media.scrobble\", \"Metadata\": {\
+                \"type\": \"episode\", \"grandparentTitle\": \"Onii-chan wa Oshimai!\", \
+                \"parentIndex\": 1, \"index\": 2}, \"Account\": {\"title\": \"yukikaze\"}}",
+            )
+            .dispatch();
+        assert_eq!(response.status(), Status::Ok);
+        assert_eq!(response.into_string().unwrap(), expected_response)
     }
 
     #[test]
@@ -324,7 +369,7 @@ mod test {
             .body(
                 "payload={\"event\": \"library.new\", \"Metadata\": {\
                 \"type\": \"episode\", \"grandparentTitle\": \"Onii-chan wa Oshimai!\", \
-                \"parentIndex\": 1, \"index\": 2}}",
+                \"parentIndex\": 1, \"index\": 2}, \"Account\": {\"title\": \"yukikaze\"}}",
             )
             .dispatch();
         assert_eq!(response.status(), Status::Ok);
