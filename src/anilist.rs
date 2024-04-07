@@ -152,6 +152,12 @@ impl MediaListGroup {
         return None;
     }
 
+    pub fn empty() -> Self {
+        Self {
+            entries: Vec::new(),
+        }
+    }
+
     pub fn get_context_values<'a>(self: &'a Self) -> impl Iterator<Item = (i32, String)> + 'a {
         return self
             .entries
@@ -340,7 +346,11 @@ pub async fn get_watching_list(
     let response = send_query(token, query).await?;
     let media_list_collection_data =
         QueryResponse::<MediaListCollectionData>::parse(response).await?;
-    Ok(media_list_collection_data.MediaListCollection.lists[0].clone())
+    let lists = media_list_collection_data.MediaListCollection.lists;
+    if lists.is_empty() {
+        return Ok(MediaListGroup::empty());
+    }
+    Ok(lists[0].clone())
 }
 
 async fn send_query<T>(
