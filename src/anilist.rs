@@ -209,12 +209,12 @@ impl MediaTitle {
         // Levenshtein distance with cleaned up comparison to get rid of common
         // suffixes that might alter between AniDB and local libraries.
         let massaging_regexes = [
-            Regex::new(r" \(?20[2-4]\d\)?$").unwrap(),      // XXX (2023)
+            Regex::new(r" \(?20[2-4]\d\)?$").unwrap(), // XXX (2023)
             Regex::new(r" \d+(st|nd|rd|th) season$").unwrap(), // XXX 2nd Season
-            Regex::new(r" \(?cour \d\)?$").unwrap(),        // XXX Cour 2, XXX (Cour 2)
-            Regex::new(r" \(?season \d\)?$").unwrap(),      // XXX Season 2, XXX (Season 2)
-            Regex::new(r" \(?part \d\)?$").unwrap(),        // XXX Part 2, XXX (Part 2)
-            Regex::new(r" \d$").unwrap(),                   // XXX 2
+            Regex::new(r" \(?cour \d\)?$").unwrap(),   // XXX Cour 2, XXX (Cour 2)
+            Regex::new(r" \(?season \d\)?$").unwrap(), // XXX Season 2, XXX (Season 2)
+            Regex::new(r" \(?part \d\)?$").unwrap(),   // XXX Part 2, XXX (Part 2)
+            Regex::new(r" \d$").unwrap(),              // XXX 2
         ];
         let massaged_string = remove_regexes(&massaging_regexes, string);
         debug!("Matching fallback title \"{}\"", &massaged_string);

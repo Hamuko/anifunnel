@@ -37,7 +37,7 @@ struct AnifunnelArgs {
 
     /// Only process updates from a specific Plex username.
     #[clap(long, env = "ANILIST_PLEX_USER")]
-    plex_user: Option<String>
+    plex_user: Option<String>,
 }
 
 #[get("/admin")]
