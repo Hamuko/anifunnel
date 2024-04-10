@@ -13,9 +13,9 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Cargo cache
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: |
           ~/.cargo/registry
@@ -33,7 +33,7 @@ jobs:
     steps:
       - name: Build cache path
         run: echo "CACHE_PATH=${GITHUB_REPOSITORY@L}" >> ${GITHUB_ENV}
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
       - name: Set up Docker Buildx
@@ -114,9 +114,9 @@ jobs:
       TARGET_AR: ${{ matrix.TARGET_AR }}
       OS: ${{ matrix.OS }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Cargo cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry
@@ -166,9 +166,9 @@ jobs:
           mv ./target/$TARGET/release/$EXEC ./$EXEC
           tar -czf ./artifacts/$NAME-$TARGET-$GITHUB_REF_NAME.tar.gz $EXEC
       - name: Archive artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: build-artifacts
+          name: release-build-${{ matrix.TARGET }}
           path: |
             ./artifacts
 
@@ -178,10 +178,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
-          name: build-artifacts
           path: ./artifacts
+          pattern: release-build-*
+          merge-multiple: true
       - name: Release to GitHub
         uses: softprops/action-gh-release@v1
         with:
