@@ -31,6 +31,8 @@ jobs:
       contents: read
       packages: write
     steps:
+      - name: Build cache path
+        run: echo "CACHE_PATH=${GITHUB_REPOSITORY@L}" >> ${GITHUB_ENV}
       - uses: actions/checkout@v3
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
@@ -59,8 +61,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.CACHE_PATH }}:cache
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.CACHE_PATH }}:cache,mode=max
 
   build:
     needs: test
