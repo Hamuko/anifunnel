@@ -175,6 +175,24 @@ pub struct MediaTitle {
     userPreferred: String,
 }
 
+fn remove_special_surrounding_characters(value: &str) -> &str {
+    let mut start_pos = 0;
+    let mut end_pos = 0;
+    for (pos, chr) in value.char_indices() {
+        start_pos = pos;
+        if chr.is_alphanumeric() || chr == '(' {
+            break;
+        }
+    }
+    for (pos, chr) in value.char_indices().rev() {
+        end_pos = pos;
+        if chr.is_alphanumeric() || chr == ')' {
+            break;
+        }
+    }
+    return &value[start_pos..=end_pos];
+}
+
 impl MediaTitle {
     fn find_match(self: &Self, string: &String) -> f64 {
         let mut titles: Vec<String> = Vec::new();
@@ -217,9 +235,11 @@ impl MediaTitle {
             Regex::new(r" \d$").unwrap(),              // XXX 2
         ];
         let massaged_string = remove_regexes(&massaging_regexes, string);
+        let massaged_string = remove_special_surrounding_characters(&massaged_string);
         debug!("Matching fallback title \"{}\"", &massaged_string);
         for title in titles.iter() {
             let massaged_title = remove_regexes(&massaging_regexes, &title);
+            let massaged_title = remove_special_surrounding_characters(&massaged_title);
             let confidence =
                 (normalized_levenshtein(&massaged_string, &massaged_title) - 0.05).max(0.0);
             debug!("~ {} = {}", &massaged_title, &confidence);
@@ -492,6 +512,20 @@ mod tests {
     }
 
     #[test]
+    fn media_list_group_fuzzy_matching_nth_season_special_characters() {
+        let anidb_title = "[Oshi no Ko] 2nd Season";
+        let search_title = String::from("\"Oshi no Ko\" (2024)");
+
+        let media_list = fake_media_list(1234, anidb_title);
+        let media_list_group = MediaListGroup {
+            entries: vec![media_list.clone()],
+        };
+
+        let matched = media_list_group.find_match(&search_title).unwrap();
+        assert_eq!(matched, &media_list);
+    }
+
+    #[test]
     // Test that the better of two close matches is picked.
     fn media_list_group_multiple_close_matches() {
         let correct_title = "To Aru Kagaku no Railgun";
@@ -534,5 +568,17 @@ mod tests {
         let input = String::from("This is (arguably) the day of the 21st century.");
         let output = remove_regexes(&regexes, &input);
         assert_eq!(output, "This is the day of the century");
+    }
+
+    #[test_case("(Oshi no Ko)", "(Oshi no Ko)" ; "surrounding parentheses")]
+    #[test_case("2.5 Jigen no Ririsa", "2.5 Jigen no Ririsa" ; "leading numbers")]
+    #[test_case("[Oshi no Ko]", "Oshi no Ko" ; "surrounding brackets")]
+    #[test_case("\"Oshi no Ko\"", "Oshi no Ko" ; "surrounding quotes")]
+    #[test_case("Anne Happy♪", "Anne Happy" ; "trailing note")]
+    #[test_case("Black★Rock Shooter", "Black★Rock Shooter" ; "special character between")]
+    #[test_case("Girlfriend (Kari)", "Girlfriend (Kari)" ; "trailing parenthesis")]
+    fn special_surrounding_characters_removal(input: &str, expected: &str) {
+        let output = remove_special_surrounding_characters(&input);
+        assert_eq!(output, expected);
     }
 }
