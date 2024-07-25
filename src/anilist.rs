@@ -190,6 +190,9 @@ fn remove_special_surrounding_characters(value: &str) -> &str {
             break;
         }
     }
+    while !value.is_char_boundary(end_pos + 1) {
+        end_pos += 1;
+    }
     return &value[start_pos..=end_pos];
 }
 
@@ -577,6 +580,8 @@ mod tests {
     #[test_case("Anne Happy♪", "Anne Happy" ; "trailing note")]
     #[test_case("Black★Rock Shooter", "Black★Rock Shooter" ; "special character between")]
     #[test_case("Girlfriend (Kari)", "Girlfriend (Kari)" ; "trailing parenthesis")]
+    #[test_case("らき☆すた", "らき☆すた" ; "special character between Japanese")]
+    #[test_case("【推しの子】", "推しの子" ; "surrounding quotes Japanese")]
     fn special_surrounding_characters_removal(input: &str, expected: &str) {
         let output = remove_special_surrounding_characters(&input);
         assert_eq!(output, expected);
