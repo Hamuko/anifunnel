@@ -14,7 +14,7 @@ mutation($id: Int, $progress: Int) {
 ";
 const MEDIALIST_QUERY: &str = "
 query MediaListCollection($user_id: Int) {
-    MediaListCollection(userId: $user_id, status: CURRENT, type: ANIME) {
+    MediaListCollection(userId: $user_id, status_in: [CURRENT, REPEATING], type: ANIME) {
         lists {
             entries {
                 id
@@ -369,11 +369,11 @@ pub async fn get_watching_list(
     let response = send_query(token, query).await?;
     let media_list_collection_data =
         QueryResponse::<MediaListCollectionData>::parse(response).await?;
-    let lists = media_list_collection_data.MediaListCollection.lists;
-    if lists.is_empty() {
-        return Ok(MediaListGroup::empty());
+    let mut collected_list = MediaListGroup::empty();
+    for mut list in media_list_collection_data.MediaListCollection.lists {
+        collected_list.entries.append(&mut list.entries);
     }
-    Ok(lists[0].clone())
+    Ok(collected_list)
 }
 
 async fn send_query<T>(
