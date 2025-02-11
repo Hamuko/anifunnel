@@ -1,6 +1,6 @@
 # BUILD CONTAINER
 
-FROM rust:1.84 as build
+FROM rust:1.84 AS build
 
 ENV CARGO_NET_GIT_FETCH_WITH_CLI=true
 
@@ -10,7 +10,7 @@ RUN apt-get update && apt-get install -y ca-certificates \
 RUN USER=root cargo new --bin anifunnel
 
 # Build dependencies separately for layer caching.
-WORKDIR ./anifunnel
+WORKDIR /anifunnel
 COPY ./Cargo.lock ./Cargo.lock
 COPY ./Cargo.toml ./Cargo.toml
 RUN cargo build --release
