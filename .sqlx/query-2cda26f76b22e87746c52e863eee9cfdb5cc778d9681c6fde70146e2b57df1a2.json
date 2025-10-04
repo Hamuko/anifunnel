@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM authentication WHERE expiry <= unixepoch()",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": []
+  },
+  "hash": "2cda26f76b22e87746c52e863eee9cfdb5cc778d9681c6fde70146e2b57df1a2"
+}

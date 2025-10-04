@@ -1,0 +1,32 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT token, user_id, username FROM authentication WHERE expiry > unixepoch() LIMIT 1",
+  "describe": {
+    "columns": [
+      {
+        "name": "token",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "user_id",
+        "ordinal": 1,
+        "type_info": "Int64"
+      },
+      {
+        "name": "username",
+        "ordinal": 2,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "812c6ddf492d55ef32b7a83852b6995a80aab1cd25f8d601a721cf1a0e7452bd"
+}

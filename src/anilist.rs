@@ -20,6 +20,7 @@ query MediaListCollection($user_id: Int) {
                 id
                 progress
                 media {
+                    id
                     title {
                         romaji
                         english
@@ -43,6 +44,9 @@ query {
 ";
 const MINIMUM_CONFIDENCE: f64 = 0.8;
 
+pub type MediaListIdentifier = i64;
+pub type UserID = i64;
+
 #[derive(Debug)]
 pub enum AnilistError {
     RequestDataError,
@@ -51,14 +55,32 @@ pub enum AnilistError {
     InvalidToken,
 }
 
+impl std::fmt::Display for AnilistError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::RequestDataError => write!(f, "Request data error"),
+            Self::ConnectionError => write!(f, "Connection error"),
+            Self::ParsingError => write!(f, "Parsing error"),
+            Self::InvalidToken => write!(f, "Invalid token"),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Deserialize)]
 pub struct Media {
+    pub id: i32,
     pub title: MediaTitle,
+}
+
+impl Media {
+    pub fn get_display_title(&self) -> String {
+        self.title.userPreferred.clone()
+    }
 }
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct MediaList {
-    pub id: i32,
+    pub id: MediaListIdentifier,
     pub progress: i32,
     pub media: Media,
 }
@@ -98,22 +120,22 @@ struct MediaListCollectionData {
 
 #[derive(Debug, Serialize, Deserialize)]
 struct MediaListCollectionQueryVariables {
-    user_id: i32,
+    user_id: UserID,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 struct MediaListCollectionMutateVariables {
-    id: i32,
+    id: MediaListIdentifier,
     progress: i32,
 }
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct MediaListGroup {
-    entries: Vec<MediaList>,
+    pub entries: Vec<MediaList>,
 }
 
 impl MediaListGroup {
-    pub fn find_id(self: &Self, id: &i32) -> Option<&MediaList> {
+    pub fn find_id(self: &Self, id: &MediaListIdentifier) -> Option<&MediaList> {
         debug!("Matching ID \"{}\"", &id);
         for media_list in self.entries.iter() {
             if &media_list.id == id {
@@ -156,13 +178,6 @@ impl MediaListGroup {
         Self {
             entries: Vec::new(),
         }
-    }
-
-    pub fn get_context_values<'a>(self: &'a Self) -> impl Iterator<Item = (i32, String)> + 'a {
-        return self
-            .entries
-            .iter()
-            .map(|x| (x.id, x.media.title.userPreferred.clone()));
     }
 }
 
@@ -326,7 +341,7 @@ impl<T> QueryResponse<T> {
 
 #[derive(Debug, Deserialize)]
 pub struct User {
-    pub id: i32,
+    pub id: UserID,
     pub name: String,
 }
 
@@ -343,7 +358,7 @@ fn remove_regexes(regexes: &[Regex], string: &String) -> String {
         .fold(string.clone(), |s, regex| regex.replace(&s, "").to_string());
 }
 
-pub async fn get_user(token: &String) -> Result<User, AnilistError> {
+pub async fn get_user(token: &str) -> Result<User, AnilistError> {
     let query = Query::<()> {
         query: USER_QUERY,
         variables: None,
@@ -359,9 +374,9 @@ pub async fn get_user(token: &String) -> Result<User, AnilistError> {
 
 pub async fn get_watching_list(
     token: &String,
-    user: &User,
+    user_id: UserID,
 ) -> Result<MediaListGroup, AnilistError> {
-    let variables = MediaListCollectionQueryVariables { user_id: user.id };
+    let variables = MediaListCollectionQueryVariables { user_id };
     let query = Query::<MediaListCollectionQueryVariables> {
         query: MEDIALIST_QUERY,
         variables: Some(variables),
@@ -376,10 +391,7 @@ pub async fn get_watching_list(
     Ok(collected_list)
 }
 
-async fn send_query<T>(
-    token: &String,
-    query: Query<'_, T>,
-) -> Result<reqwest::Response, AnilistError>
+async fn send_query<T>(token: &str, query: Query<'_, T>) -> Result<reqwest::Response, AnilistError>
 where
     T: Serialize,
 {
@@ -425,25 +437,6 @@ mod tests {
                 && self.media.title.native == other.media.title.native
                 && self.media.title.userPreferred == other.media.title.userPreferred
         }
-    }
-
-    #[test]
-    fn media_list_group_get_context_values() {
-        let media_list_group = MediaListGroup {
-            entries: vec![
-                fake_media_list(146065, "Mushoku Tensei II"),
-                fake_media_list(163132, "Horimiya -piece-"),
-            ],
-        };
-
-        let values: Vec<(i32, String)> = media_list_group.get_context_values().collect();
-        assert_eq!(
-            values,
-            vec![
-                (146065, String::from("Mushoku Tensei II")),
-                (163132, String::from("Horimiya -piece-"))
-            ]
-        );
     }
 
     #[test_case(146065, Some("Mushoku Tensei II") ; "valid ID")]
