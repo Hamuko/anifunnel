@@ -147,6 +147,16 @@ jobs:
       - name: Install rust target
         shell: bash
         run: rustup target add $TARGET
+      - name: Install Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - name: Build the front-end
+        shell: bash
+        working-directory: ./frontend
+        run: |
+          npm install
+          npm run build
       - name: Run build
         shell: bash
         run: cargo build --release --verbose --target $TARGET
