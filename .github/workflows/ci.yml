@@ -174,7 +174,7 @@ jobs:
               EXEC=$NAME
           fi
           mv ./target/$TARGET/release/$EXEC ./$EXEC
-          tar -czf ./artifacts/$NAME-$TARGET-$GITHUB_REF_NAME.tar.gz $EXEC
+          tar -czf ./artifacts/$NAME-$TARGET-${GITHUB_REF_NAME//\//-}.tar.gz $EXEC
       - name: Archive artifact
         uses: actions/upload-artifact@v4
         with:
