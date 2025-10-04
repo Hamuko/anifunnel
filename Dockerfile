@@ -1,6 +1,6 @@
 # BUILD CONTAINER
 
-FROM rust:1.84 AS build
+FROM rust:1.90 AS build
 
 ENV CARGO_NET_GIT_FETCH_WITH_CLI=true
 
@@ -25,7 +25,7 @@ RUN cargo build --release --verbose
 
 # RUNTIME CONTAINER
 
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 
 COPY --from=build /etc/ssl/certs/ /etc/ssl/certs/
 
