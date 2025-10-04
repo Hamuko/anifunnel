@@ -20,7 +20,6 @@ use rocket::response::Redirect;
 use rocket_db_pools::{Connection, Database};
 use simple_logger::SimpleLogger;
 use std::{net::Ipv4Addr, vec};
-use tempfile::tempdir;
 
 #[derive(Parser, Debug)]
 struct AnifunnelArgs {
@@ -156,10 +155,6 @@ async fn main() {
     let database_url = args.database;
     let state = state::Global::from_args(args.multi_season, args.plex_user);
 
-    // Because Rocket *requires* a template directory even though we are embedding our
-    // single template inside the binary, we need to make a dummy directory for anifunnel.
-    let dir = tempdir().unwrap();
-
     // Increase the string limit from default since Plex might send the thumbnail in some
     // requests and we don't want those to cause unnecessary HTTP 413 Content Too Large
     // errors (even though we don't use those requests).
@@ -173,7 +168,6 @@ async fn main() {
         .merge(("limits", limits))
         .merge(("port", port))
         .merge(("address", address))
-        .merge(("template_dir", dir.path()))
         .merge((
             "databases.anifunnel",
             rocket_db_pools::Config {
