@@ -212,24 +212,43 @@ mod test {
     use test_case::test_case;
     use tokio::sync::RwLock;
 
-    fn build_client() -> Client {
-        let state = state::Global {
+    fn build_state() -> state::Global {
+        state::Global {
             multi_season: false,
             plex_user: None,
             user: RwLock::new(Some(state::UserInfo {
                 token: "A".into(),
                 user_id: 10,
             })),
-        };
-        let rocket = rocket::build()
+        }
+    }
+
+    fn build_client(state: state::Global) -> Client {
+        let db_migrations = AdHoc::try_on_ignite("Database migrations", db::run_migrations);
+        let load_state_from_db = AdHoc::try_on_ignite("Load state from database", db::load_state);
+        let figment = rocket::Config::figment().merge((
+            "databases.anifunnel",
+            rocket_db_pools::Config {
+                url: ":memory:".into(),
+                min_connections: Some(1),
+                max_connections: 10,
+                connect_timeout: 5,
+                idle_timeout: Some(120),
+                extensions: None,
+            },
+        ));
+        let rocket = rocket::custom(figment)
             .manage(state)
-            .mount("/", routes![scrobble, management_redirect]);
+            .mount("/", routes![scrobble, management_redirect])
+            .attach(db::AnifunnelDatabase::init())
+            .attach(db_migrations)
+            .attach(load_state_from_db);
         return Client::tracked(rocket).expect("valid rocket instance");
     }
 
     #[test]
     fn management_redirect() {
-        let client = build_client();
+        let client = build_client(build_state());
         let response = client.get(uri!(management_redirect)).dispatch();
         assert_eq!(response.status(), Status::SeeOther);
         assert_eq!(response.headers().get_one("Location"), Some("/admin"));
@@ -237,7 +256,7 @@ mod test {
 
     #[test]
     fn scrobble() {
-        let client = build_client();
+        let client = build_client(build_state());
         let response = client
             .post(uri!(scrobble))
             .header(ContentType::Form)
@@ -262,8 +281,7 @@ mod test {
                 user_id: 10,
             })),
         };
-        let rocket = rocket::build().manage(state).mount("/", routes![scrobble]);
-        let client = Client::tracked(rocket).expect("valid rocket instance");
+        let client = build_client(state);
         let response = client
             .post(uri!(scrobble))
             .header(ContentType::Form)
@@ -279,7 +297,7 @@ mod test {
 
     #[test]
     fn scrobble_non_actionable() {
-        let client = build_client();
+        let client = build_client(build_state());
         let response = client
             .post(uri!(scrobble))
             .header(ContentType::Form)
@@ -295,7 +313,7 @@ mod test {
 
     #[test]
     fn scrobble_empty_post() {
-        let client = build_client();
+        let client = build_client(build_state());
         let response = client.post(uri!(scrobble)).dispatch();
         assert_eq!(response.status(), Status::UnsupportedMediaType);
     }
