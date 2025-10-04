@@ -4,7 +4,8 @@ FROM rust:1.84 AS build
 
 ENV CARGO_NET_GIT_FETCH_WITH_CLI=true
 
-RUN apt-get update && apt-get install -y ca-certificates \
+RUN apt-get update && \
+    apt-get install -y ca-certificates npm \
     && rm -rf /var/lib/apt/lists/*
 
 RUN USER=root cargo new --bin anifunnel
