@@ -1,5 +1,4 @@
 use crate::anilist::UserID;
-use crate::AnifunnelArgs;
 use tokio::sync::RwLock;
 
 #[derive(Debug)]
@@ -11,10 +10,10 @@ pub struct Global {
 }
 
 impl Global {
-    pub fn from_args(args: AnifunnelArgs) -> Self {
+    pub fn from_args(multi_season: bool, plex_user: Option<String>) -> Self {
         Self {
-            multi_season: args.multi_season,
-            plex_user: args.plex_user,
+            multi_season,
+            plex_user,
             user: RwLock::new(None),
         }
     }

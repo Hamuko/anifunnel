@@ -32,6 +32,10 @@ struct AnifunnelArgs {
     #[clap(long, default_value_t = 8000, env = "ANIFUNNEL_PORT")]
     port: u16,
 
+    /// Path to the SQLite database file.
+    #[clap(long, default_value = "anifunnel.sqlite", env = "ANIFUNNEL_DATABASE")]
+    database: String,
+
     /// Match against all Plex library seasons. May not accurately find matches.
     #[arg(long, env = "ANIFUNNEL_MULTI_SEASON")]
     multi_season: bool,
@@ -149,7 +153,8 @@ async fn main() {
 
     let address = args.bind_address;
     let port = args.port;
-    let state = state::Global::from_args(args);
+    let database_url = args.database;
+    let state = state::Global::from_args(args.multi_season, args.plex_user);
 
     // Because Rocket *requires* a template directory even though we are embedding our
     // single template inside the binary, we need to make a dummy directory for anifunnel.
@@ -172,7 +177,7 @@ async fn main() {
         .merge((
             "databases.anifunnel",
             rocket_db_pools::Config {
-                url: "anifunnel.sqlite".into(),
+                url: database_url,
                 min_connections: Some(1),
                 max_connections: 10,
                 connect_timeout: 5,
