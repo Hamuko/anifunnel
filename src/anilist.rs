@@ -414,12 +414,13 @@ mod tests {
 
     use test_case::test_case;
 
-    fn fake_media_list(id: i32, title: &str) -> MediaList {
+    fn fake_media_list(id: MediaListIdentifier, title: &str) -> MediaList {
         let title = String::from(title);
         return MediaList {
             id,
             progress: 3,
             media: Media {
+                id: 1,
                 title: MediaTitle {
                     romaji: Some(title.clone()),
                     english: Some(title.clone()),
@@ -442,7 +443,7 @@ mod tests {
     #[test_case(146065, Some("Mushoku Tensei II") ; "valid ID")]
     #[test_case(163132, Some("Horimiya -piece-") ; "also valid ID")]
     #[test_case(163133, None ; "invalid ID")]
-    fn media_list_group_get_id(id: i32, expected: Option<&str>) {
+    fn media_list_group_get_id(id: MediaListIdentifier, expected: Option<&str>) {
         let correct_media_list = fake_media_list(146065, "Mushoku Tensei II");
         let incorrect_media_list = fake_media_list(163132, "Horimiya -piece-");
         let media_list_group = MediaListGroup {

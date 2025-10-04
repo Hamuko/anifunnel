@@ -210,89 +210,21 @@ mod test {
     use rocket::http::{ContentType, Status};
     use rocket::local::blocking::Client;
     use test_case::test_case;
+    use tokio::sync::RwLock;
 
     fn build_client() -> Client {
-        let state = data::state::Global {
+        let state = state::Global {
             multi_season: false,
             plex_user: None,
-            token: String::from("A"),
-            user: anilist::User {
-                id: 1,
-                name: String::from("A"),
-            },
-            title_overrides: RwLock::new(data::state::TitleOverrides::new()),
-            episode_offsets: RwLock::new(data::state::EpisodeOverrides::new()),
+            user: RwLock::new(Some(state::UserInfo {
+                token: "A".into(),
+                user_id: 10,
+            })),
         };
         let rocket = rocket::build()
             .manage(state)
-            .mount("/", routes![scrobble, management_edit, management_redirect]);
+            .mount("/", routes![scrobble, management_redirect]);
         return Client::tracked(rocket).expect("valid rocket instance");
-    }
-
-    #[test_case("Mushoku Tensei S2", "1", Some(146065), Some(1) ; "title, episode offset")]
-    #[test_case("Mushoku Tensei S2", "", Some(146065), None ; "title, no episode offset")]
-    #[test_case("", "1", None, Some(1) ; "no title, episode_offset")]
-    #[test_case("", "", None, None ; "no title, no episode offset")]
-    fn management_edit_add(
-        title: &str,
-        episode_offset: &str,
-        expected_title_override: Option<i32>,
-        expected_episode_offset: Option<i32>,
-    ) {
-        let client = build_client();
-        let request = client
-            .post(uri!(management_edit(146065)))
-            .header(ContentType::Form)
-            .body(format!("title={}&episode_offset={}", title, episode_offset));
-        let state = request.rocket().state::<data::state::Global>().unwrap();
-        let response = request.dispatch();
-        assert_eq!(response.status(), Status::SeeOther);
-        assert_eq!(
-            state
-                .title_overrides
-                .blocking_read()
-                .get(&String::from("Mushoku Tensei S2")),
-            expected_title_override
-        );
-        assert_eq!(
-            state.episode_offsets.blocking_read().get(&146065),
-            expected_episode_offset
-        );
-    }
-
-    #[test_case("Mushoku Tensei S2", "", Some(146065), None ; "title, no episode offset")]
-    #[test_case("", "1", None, Some(1) ; "no title, episode_offset")]
-    #[test_case("", "", None, None ; "no title, no episode offset")]
-    fn management_edit_remove(
-        title: &str,
-        episode_offset: &str,
-        expected_title_override: Option<i32>,
-        expected_episode_offset: Option<i32>,
-    ) {
-        let client = build_client();
-        let request = client
-            .post(uri!(management_edit(146065)))
-            .header(ContentType::Form)
-            .body(format!("title={}&episode_offset={}", title, episode_offset));
-        let state = request.rocket().state::<data::state::Global>().unwrap();
-        state
-            .title_overrides
-            .blocking_write()
-            .set(String::from("Mushoku Tensei S2"), 146065);
-        state.episode_offsets.blocking_write().set(146065, 1);
-        let response = request.dispatch();
-        assert_eq!(response.status(), Status::SeeOther);
-        assert_eq!(
-            state
-                .title_overrides
-                .blocking_read()
-                .get(&String::from("Mushoku Tensei S2")),
-            expected_title_override
-        );
-        assert_eq!(
-            state.episode_offsets.blocking_read().get(&146065),
-            expected_episode_offset
-        );
     }
 
     #[test]
@@ -322,16 +254,13 @@ mod test {
     #[test_case("yukikaze", "OK" ; "correct username")]
     #[test_case("shiranui", "NO OP" ; "incorrect username")]
     fn scrobble_username_filter(plex_user: &str, expected_response: &str) {
-        let state = data::state::Global {
+        let state = state::Global {
             multi_season: false,
             plex_user: Some(String::from(plex_user)),
-            token: String::from("A"),
-            user: anilist::User {
-                id: 1,
-                name: String::from("A"),
-            },
-            title_overrides: RwLock::new(data::state::TitleOverrides::new()),
-            episode_offsets: RwLock::new(data::state::EpisodeOverrides::new()),
+            user: RwLock::new(Some(state::UserInfo {
+                token: "A".into(),
+                user_id: 10,
+            })),
         };
         let rocket = rocket::build().manage(state).mount("/", routes![scrobble]);
         let client = Client::tracked(rocket).expect("valid rocket instance");
