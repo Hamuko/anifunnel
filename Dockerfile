@@ -19,7 +19,21 @@ RUN cargo build --release
 # Clean the temporary project.
 RUN rm src/*.rs ./target/release/deps/anifunnel*
 
+# Install npm dependencies separately for layer caching.
+WORKDIR /anifunnel/frontend
+COPY ./frontend/package.json ./package.json
+COPY ./frontend/package-lock.json ./package-lock.json
+RUN npm install
+
+WORKDIR /anifunnel
 ADD . ./
+
+# Build the front-end for the server build.
+WORKDIR /anifunnel/frontend
+RUN npm run build
+
+# Build the server.
+WORKDIR /anifunnel
 RUN cargo build --release --verbose
 
 
