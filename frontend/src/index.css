@@ -1,0 +1,50 @@
+html {
+    background: #0d1621;
+    color: rgb(159, 173, 189);
+    font-family: sans-serif;
+    font-size: 16px;
+}
+
+*,
+*:before,
+*:after {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+}
+
+button {
+    background: rgb(61, 180, 242);
+    border: 0;
+    color: rgb(237, 241, 245);
+    padding: 10px 20px;
+    font-size: 14px;
+}
+
+button.secondary {
+    background-color: #0f1823;
+    color: rgb(159, 173, 189);
+}
+
+button,
+textarea {
+    border-radius: 5px;
+}
+
+input,
+button,
+textarea,
+select {
+    font-family: inherit;
+    font-size: inherit;
+}
+
+textarea:not([rows]) {
+    min-height: 10em;
+}
+
+.error-text {
+    color: #d04939;
+}

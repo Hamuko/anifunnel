@@ -1,0 +1,27 @@
+form#authentication-form {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    padding: 20px;
+    width: 100%;
+}
+
+form#authentication-form .buttons {
+    display: flex;
+    gap: 16px;
+}
+
+form#authentication-form > .container {
+    width: 100%;
+    padding: 10px;
+}
+
+form#authentication-form textarea {
+    resize: none;
+    outline: none;
+    width: 100%;
+    padding: 20px;
+    border: none;
+    height: 100%;
+}

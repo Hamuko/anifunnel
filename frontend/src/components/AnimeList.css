@@ -1,0 +1,49 @@
+.anime-item {
+    padding: 20px;
+    margin: 10px 0;
+    background-color: #171f2d;
+    border-radius: 5px;
+}
+
+.anime-item .details {
+    display: flex;
+    justify-content: space-between;
+}
+
+.matching-info {
+    margin-top: 1px;
+    margin-bottom: 0;
+    font-size: 13px;
+}
+
+.anime-item .details a {
+    font-weight: 600;
+    font-size: 22px;
+    color: #9ea9b8;
+    text-decoration: none;
+}
+
+.anime-item .overrides {
+    margin-top: 20px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.anime-item .overrides .error-text {
+    width: 100%;
+    font-size: 13px;
+}
+
+.anime-item .overrides input {
+    border-radius: 5px;
+    border: none;
+    flex-grow: 1;
+    outline: none;
+    padding: 10px;
+}
+
+.anime-item button {
+    cursor: pointer;
+    font-size: 13px;
+}
