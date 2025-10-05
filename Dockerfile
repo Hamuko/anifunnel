@@ -46,7 +46,7 @@ COPY --from=build /etc/ssl/certs/ /etc/ssl/certs/
 COPY --from=build /anifunnel/target/release/anifunnel .
 
 ENV ANIFUNNEL_ADDRESS=0.0.0.0 \
-    ANIFUNNEL_DATABASE=/anifunnel.db \
+    ANIFUNNEL_DATABASE=/db/anifunnel.db \
     ANIFUNNEL_PORT=8000
 
 EXPOSE 8000
