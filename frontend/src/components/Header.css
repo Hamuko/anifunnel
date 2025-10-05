@@ -1,0 +1,44 @@
+header {
+    background-color: #152232;
+
+    width: 100%;
+    height: 80px;
+    display: flex;
+    height: 75px;
+    justify-content: center;
+}
+
+header h1 {
+    color: #fff;
+}
+
+header .wrapper {
+    margin: 0 50px;
+    max-width: 1000px;
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    flex-direction: row;
+}
+
+header .user-info {
+    display: flex;
+    gap: 4px;
+    flex-direction: column;
+    text-align: end;
+}
+
+header .user-info .warn {
+    color: #d04939;
+}
+
+header .user-info h4,
+header .user-info h5 {
+    margin: 0;
+}
+
+header .user-info h5 {
+    font-weight: 500;
+}

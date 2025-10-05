@@ -5,14 +5,17 @@ edition = "2021"
 resolver = "2"
 
 [dependencies]
+base64 = "0.22"
 clap = { version = "4.4", features = ["derive", "env"] }
 log = "0.4"
 regex = "1.10"
-rocket = "0.5.0-rc"
+rocket = { version = "0.5.1", features = ["json"] }
+rocket_db_pools = { version = "0.2.0", features = ["sqlx_sqlite"] }
 rocket_dyn_templates = { version = "0.1.0-rc.3", features = ["tera"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 simple_logger = "4.0"
+sqlx = { version = "0.7", default-features = false, features = ["macros", "migrate", "chrono"] }
 strsim = "0.10"
 tempfile = "3"
 tokio = { version = "1", features = ["sync"] }
@@ -25,3 +28,6 @@ reqwest = { version = "0.11", default-features = false, features = ["json", "def
 
 [dev-dependencies]
 test-case = "3.1"
+
+[build-dependencies]
+npm_rs = "1.0"

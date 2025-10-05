@@ -1,0 +1,10 @@
+main {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+main > .wrapper {
+    width: 100%;
+    max-width: 1000px;
+}

@@ -2,27 +2,27 @@
 extern crate rocket;
 
 mod anilist;
-mod data;
+mod api;
+mod db;
+mod forms;
 mod plex;
+mod responders;
+mod state;
+mod utils;
 
 use clap::Parser;
-use data::context::Anime;
 use log::{debug, error, info, warn, LevelFilter};
 use rocket::data::{Limits, ToByteUnit};
+use rocket::fairing::AdHoc;
 use rocket::form::Form;
+use rocket::response::content::{RawCss, RawHtml, RawJavaScript};
 use rocket::response::Redirect;
-use rocket_dyn_templates::{context, Template};
+use rocket_db_pools::{Connection, Database};
 use simple_logger::SimpleLogger;
 use std::{net::Ipv4Addr, vec};
-use tempfile::tempdir;
-use tokio::sync::RwLock;
 
 #[derive(Parser, Debug)]
 struct AnifunnelArgs {
-    /// Anilist API token.
-    #[clap(env = "ANILIST_TOKEN")]
-    anilist_token: String,
-
     /// IP address to bind the server to.
     #[clap(long, default_value_t = Ipv4Addr::new(0, 0, 0, 0), env = "ANIFUNNEL_ADDRESS")]
     bind_address: Ipv4Addr,
@@ -30,6 +30,10 @@ struct AnifunnelArgs {
     /// Port to bind the server to.
     #[clap(long, default_value_t = 8000, env = "ANIFUNNEL_PORT")]
     port: u16,
+
+    /// Path to the SQLite database file.
+    #[clap(long, default_value = "anifunnel.sqlite", env = "ANIFUNNEL_DATABASE")]
+    database: String,
 
     /// Match against all Plex library seasons. May not accurately find matches.
     #[arg(long, env = "ANIFUNNEL_MULTI_SEASON")]
@@ -41,47 +45,18 @@ struct AnifunnelArgs {
 }
 
 #[get("/admin")]
-async fn management(state: &rocket::State<data::state::Global>) -> Template {
-    let title_overrides = state.title_overrides.read().await;
-    let episode_offsets = state.episode_offsets.read().await;
-    let watching_list = match anilist::get_watching_list(&state.token, &state.user).await {
-        Ok(media_list_group) => Anime::build(&media_list_group, &title_overrides, &episode_offsets),
-        Err(_) => vec![],
-    };
-    Template::render(
-        "management.html",
-        context! {
-            watching_list: watching_list,
-        },
-    )
+async fn management() -> responders::StaticContent<RawHtml<&'static str>> {
+    responders::StaticContent::new(RawHtml(include_str!("../dist/index.html")))
 }
 
-#[post("/admin/edit/<id>", data = "<form>")]
-async fn management_edit(
-    id: i32,
-    form: Form<data::forms::AnimeOverride<'_>>,
-    state: &rocket::State<data::state::Global>,
-) -> Redirect {
-    let anifunnel_state: &data::state::Global = state.inner();
-    let mut title_overrides = anifunnel_state.title_overrides.write().await;
-    let mut episode_offsets = anifunnel_state.episode_offsets.write().await;
+#[get("/assets/index.css")]
+async fn management_css() -> responders::StaticContent<RawCss<&'static str>> {
+    responders::StaticContent::new(RawCss(include_str!("../dist/assets/index.css")))
+}
 
-    if let Some(title) = form.get_title() {
-        debug!("Setting title override for ID {} to \"{}\"", id, title);
-        title_overrides.set(title.to_string(), id);
-    } else {
-        debug!("Removing possible title override for ID {}", id);
-        title_overrides.remove_value(&id);
-    }
-
-    if let Some(episode_offset) = form.get_episode_offset() {
-        debug!("Setting episode offset for ID {} to {}", id, episode_offset);
-        episode_offsets.set(id, episode_offset);
-    } else {
-        debug!("Removing possible episode offset for ID {}", id);
-        episode_offsets.remove(&id);
-    }
-    Redirect::to(uri!(management))
+#[get("/assets/index.js")]
+async fn management_js() -> responders::StaticContent<RawJavaScript<&'static str>> {
+    responders::StaticContent::new(RawJavaScript(include_str!("../dist/assets/index.js")))
 }
 
 #[get("/")]
@@ -91,8 +66,9 @@ async fn management_redirect() -> Redirect {
 
 #[post("/", data = "<form>")]
 async fn scrobble(
-    form: Form<data::forms::Scrobble<'_>>,
-    state: &rocket::State<data::state::Global>,
+    form: Form<forms::Scrobble<'_>>,
+    mut db: Connection<db::AnifunnelDatabase>,
+    state: &rocket::State<state::Global>,
 ) -> &'static str {
     let webhook: plex::Webhook = match serde_json::from_str(form.payload) {
         Ok(data) => data,
@@ -118,10 +94,20 @@ async fn scrobble(
         }
     }
 
-    if let Ok(media_list_entries) = anilist::get_watching_list(&state.token, &state.user).await {
-        let title_overrides = state.title_overrides.read().await;
-        let matched_media_list = match title_overrides.get(&webhook.metadata.title) {
-            Some(id) => media_list_entries.find_id(&id),
+    // Get the user ID and token from the application state or exit with an error.
+    let user_info_lock = state.user.read().await;
+    let Some(user_info) = &(*user_info_lock) else {
+        warn!("Anilist token needs to be set through the management interface to update progress");
+        return "ERROR";
+    };
+
+    if let Ok(media_list_entries) =
+        anilist::get_watching_list(&user_info.token, user_info.user_id).await
+    {
+        let mut anime_override =
+            db::get_override_by_title(&mut **db, &webhook.metadata.title).await;
+        let matched_media_list = match &anime_override {
+            Some(o) => media_list_entries.find_id(&o.id),
             None => media_list_entries.find_match(&webhook.metadata.title),
         };
         let matched_media_list = match matched_media_list {
@@ -132,10 +118,16 @@ async fn scrobble(
             }
         };
         debug!("Processing {}", matched_media_list);
-        let episode_offsets = state.episode_offsets.read().await;
-        let episode_offset = episode_offsets.get(&matched_media_list.id).unwrap_or(0);
+
+        if anime_override.is_none() {
+            anime_override = db::get_override_by_id(&mut **db, matched_media_list.id).await;
+        }
+        let episode_offset = match &anime_override {
+            Some(o) => o.get_episode_offset(),
+            None => 0,
+        };
         if webhook.metadata.episode_number + episode_offset == matched_media_list.progress + 1 {
-            match matched_media_list.update(&state.token).await {
+            match matched_media_list.update(&user_info.token).await {
                 Ok(true) => info!("Updated '{}' progress", matched_media_list.media.title),
                 Ok(false) => error!(
                     "Failed to update progress for '{}'",
@@ -158,60 +150,55 @@ async fn main() {
         .init()
         .unwrap();
 
-    let user = match anilist::get_user(&args.anilist_token).await {
-        Ok(user) => user,
-        Err(anilist::AnilistError::InvalidToken) => {
-            error!(
-                "Invalid token. Ensure that you have a valid token. \
-                Tokens are valid for up to one year from authorization."
-            );
-            return ();
-        }
-        Err(_) => {
-            error!("Could not retrieve Anilist user.");
-            return ();
-        }
-    };
-
-    let state = data::state::Global {
-        multi_season: args.multi_season,
-        plex_user: args.plex_user,
-        token: args.anilist_token,
-        user: user,
-        title_overrides: RwLock::new(data::state::TitleOverrides::new()),
-        episode_offsets: RwLock::new(data::state::EpisodeOverrides::new()),
-    };
-
-    // Because Rocket *requires* a template directory even though we are embedding our
-    // single template inside the binary, we need to make a dummy directory for anifunnel.
-    let dir = tempdir().unwrap();
+    let address = args.bind_address;
+    let port = args.port;
+    let database_url = args.database;
+    let state = state::Global::from_args(args.multi_season, args.plex_user);
 
     // Increase the string limit from default since Plex might send the thumbnail in some
     // requests and we don't want those to cause unnecessary HTTP 413 Content Too Large
     // errors (even though we don't use those requests).
     let limits = Limits::default().limit("string", 24.kibibytes());
 
+    let db_migrations = AdHoc::try_on_ignite("Database migrations", db::run_migrations);
+    let load_state_from_db = AdHoc::try_on_ignite("Load state from database", db::load_state);
+
     // Launch the web server.
     let figment = rocket::Config::figment()
         .merge(("limits", limits))
-        .merge(("port", args.port))
-        .merge(("address", args.bind_address))
-        .merge(("template_dir", dir.path()));
+        .merge(("port", port))
+        .merge(("address", address))
+        .merge((
+            "databases.anifunnel",
+            rocket_db_pools::Config {
+                url: database_url,
+                min_connections: Some(1),
+                max_connections: 10,
+                connect_timeout: 5,
+                idle_timeout: Some(120),
+                extensions: None,
+            },
+        ));
     let rocket = rocket::custom(figment)
         .manage(state)
         .mount(
             "/",
-            routes![scrobble, management, management_edit, management_redirect],
+            routes![
+                scrobble,
+                api::user_get,
+                api::user_post,
+                api::anime_get,
+                api::anime_override,
+                management,
+                management_css,
+                management_js,
+                management_redirect
+            ],
         )
-        .attach(Template::custom(|engines| {
-            engines
-                .tera
-                .add_raw_template(
-                    "management.html",
-                    include_str!("../templates/management.html.tera"),
-                )
-                .expect("Could not load management template");
-        }));
+        .attach(db::AnifunnelDatabase::init())
+        .attach(db_migrations)
+        .attach(load_state_from_db);
+
     let _ = rocket.launch().await;
 }
 
@@ -222,94 +209,45 @@ mod test {
     use rocket::http::{ContentType, Status};
     use rocket::local::blocking::Client;
     use test_case::test_case;
+    use tokio::sync::RwLock;
 
-    fn build_client() -> Client {
-        let state = data::state::Global {
+    fn build_state() -> state::Global {
+        state::Global {
             multi_season: false,
             plex_user: None,
-            token: String::from("A"),
-            user: anilist::User {
-                id: 1,
-                name: String::from("A"),
+            user: RwLock::new(Some(state::UserInfo {
+                token: "A".into(),
+                user_id: 10,
+            })),
+        }
+    }
+
+    fn build_client(state: state::Global) -> Client {
+        let db_migrations = AdHoc::try_on_ignite("Database migrations", db::run_migrations);
+        let load_state_from_db = AdHoc::try_on_ignite("Load state from database", db::load_state);
+        let figment = rocket::Config::figment().merge((
+            "databases.anifunnel",
+            rocket_db_pools::Config {
+                url: ":memory:".into(),
+                min_connections: Some(1),
+                max_connections: 10,
+                connect_timeout: 5,
+                idle_timeout: Some(120),
+                extensions: None,
             },
-            title_overrides: RwLock::new(data::state::TitleOverrides::new()),
-            episode_offsets: RwLock::new(data::state::EpisodeOverrides::new()),
-        };
-        let rocket = rocket::build()
+        ));
+        let rocket = rocket::custom(figment)
             .manage(state)
-            .mount("/", routes![scrobble, management_edit, management_redirect]);
+            .mount("/", routes![scrobble, management_redirect])
+            .attach(db::AnifunnelDatabase::init())
+            .attach(db_migrations)
+            .attach(load_state_from_db);
         return Client::tracked(rocket).expect("valid rocket instance");
-    }
-
-    #[test_case("Mushoku Tensei S2", "1", Some(146065), Some(1) ; "title, episode offset")]
-    #[test_case("Mushoku Tensei S2", "", Some(146065), None ; "title, no episode offset")]
-    #[test_case("", "1", None, Some(1) ; "no title, episode_offset")]
-    #[test_case("", "", None, None ; "no title, no episode offset")]
-    fn management_edit_add(
-        title: &str,
-        episode_offset: &str,
-        expected_title_override: Option<i32>,
-        expected_episode_offset: Option<i32>,
-    ) {
-        let client = build_client();
-        let request = client
-            .post(uri!(management_edit(146065)))
-            .header(ContentType::Form)
-            .body(format!("title={}&episode_offset={}", title, episode_offset));
-        let state = request.rocket().state::<data::state::Global>().unwrap();
-        let response = request.dispatch();
-        assert_eq!(response.status(), Status::SeeOther);
-        assert_eq!(
-            state
-                .title_overrides
-                .blocking_read()
-                .get(&String::from("Mushoku Tensei S2")),
-            expected_title_override
-        );
-        assert_eq!(
-            state.episode_offsets.blocking_read().get(&146065),
-            expected_episode_offset
-        );
-    }
-
-    #[test_case("Mushoku Tensei S2", "", Some(146065), None ; "title, no episode offset")]
-    #[test_case("", "1", None, Some(1) ; "no title, episode_offset")]
-    #[test_case("", "", None, None ; "no title, no episode offset")]
-    fn management_edit_remove(
-        title: &str,
-        episode_offset: &str,
-        expected_title_override: Option<i32>,
-        expected_episode_offset: Option<i32>,
-    ) {
-        let client = build_client();
-        let request = client
-            .post(uri!(management_edit(146065)))
-            .header(ContentType::Form)
-            .body(format!("title={}&episode_offset={}", title, episode_offset));
-        let state = request.rocket().state::<data::state::Global>().unwrap();
-        state
-            .title_overrides
-            .blocking_write()
-            .set(String::from("Mushoku Tensei S2"), 146065);
-        state.episode_offsets.blocking_write().set(146065, 1);
-        let response = request.dispatch();
-        assert_eq!(response.status(), Status::SeeOther);
-        assert_eq!(
-            state
-                .title_overrides
-                .blocking_read()
-                .get(&String::from("Mushoku Tensei S2")),
-            expected_title_override
-        );
-        assert_eq!(
-            state.episode_offsets.blocking_read().get(&146065),
-            expected_episode_offset
-        );
     }
 
     #[test]
     fn management_redirect() {
-        let client = build_client();
+        let client = build_client(build_state());
         let response = client.get(uri!(management_redirect)).dispatch();
         assert_eq!(response.status(), Status::SeeOther);
         assert_eq!(response.headers().get_one("Location"), Some("/admin"));
@@ -317,7 +255,7 @@ mod test {
 
     #[test]
     fn scrobble() {
-        let client = build_client();
+        let client = build_client(build_state());
         let response = client
             .post(uri!(scrobble))
             .header(ContentType::Form)
@@ -331,22 +269,39 @@ mod test {
         assert_eq!(response.into_string().unwrap(), "OK")
     }
 
+    #[test]
+    fn scrobble_no_token() {
+        let state = state::Global {
+            multi_season: false,
+            plex_user: None,
+            user: RwLock::new(None),
+        };
+        let client = build_client(state);
+        let response = client
+            .post(uri!(scrobble))
+            .header(ContentType::Form)
+            .body(
+                "payload={\"event\": \"media.scrobble\", \"Metadata\": {\
+                \"type\": \"episode\", \"grandparentTitle\": \"Onii-chan wa Oshimai!\", \
+                \"parentIndex\": 1, \"index\": 2}, \"Account\": {\"title\": \"yukikaze\"}}",
+            )
+            .dispatch();
+        assert_eq!(response.status(), Status::Ok);
+        assert_eq!(response.into_string().unwrap(), "ERROR")
+    }
+
     #[test_case("yukikaze", "OK" ; "correct username")]
     #[test_case("shiranui", "NO OP" ; "incorrect username")]
     fn scrobble_username_filter(plex_user: &str, expected_response: &str) {
-        let state = data::state::Global {
+        let state = state::Global {
             multi_season: false,
             plex_user: Some(String::from(plex_user)),
-            token: String::from("A"),
-            user: anilist::User {
-                id: 1,
-                name: String::from("A"),
-            },
-            title_overrides: RwLock::new(data::state::TitleOverrides::new()),
-            episode_offsets: RwLock::new(data::state::EpisodeOverrides::new()),
+            user: RwLock::new(Some(state::UserInfo {
+                token: "A".into(),
+                user_id: 10,
+            })),
         };
-        let rocket = rocket::build().manage(state).mount("/", routes![scrobble]);
-        let client = Client::tracked(rocket).expect("valid rocket instance");
+        let client = build_client(state);
         let response = client
             .post(uri!(scrobble))
             .header(ContentType::Form)
@@ -362,7 +317,7 @@ mod test {
 
     #[test]
     fn scrobble_non_actionable() {
-        let client = build_client();
+        let client = build_client(build_state());
         let response = client
             .post(uri!(scrobble))
             .header(ContentType::Form)
@@ -378,7 +333,7 @@ mod test {
 
     #[test]
     fn scrobble_empty_post() {
-        let client = build_client();
+        let client = build_client(build_state());
         let response = client.post(uri!(scrobble)).dispatch();
         assert_eq!(response.status(), Status::UnsupportedMediaType);
     }

@@ -1,4 +1,7 @@
+/dist
 /target
 
 default.profraw
 tarpaulin-report.html
+
+anifunnel.sqlite
