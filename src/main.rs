@@ -269,6 +269,27 @@ mod test {
         assert_eq!(response.into_string().unwrap(), "OK")
     }
 
+    #[test]
+    fn scrobble_no_token() {
+        let state = state::Global {
+            multi_season: false,
+            plex_user: None,
+            user: RwLock::new(None),
+        };
+        let client = build_client(state);
+        let response = client
+            .post(uri!(scrobble))
+            .header(ContentType::Form)
+            .body(
+                "payload={\"event\": \"media.scrobble\", \"Metadata\": {\
+                \"type\": \"episode\", \"grandparentTitle\": \"Onii-chan wa Oshimai!\", \
+                \"parentIndex\": 1, \"index\": 2}, \"Account\": {\"title\": \"yukikaze\"}}",
+            )
+            .dispatch();
+        assert_eq!(response.status(), Status::Ok);
+        assert_eq!(response.into_string().unwrap(), "ERROR")
+    }
+
     #[test_case("yukikaze", "OK" ; "correct username")]
     #[test_case("shiranui", "NO OP" ; "incorrect username")]
     fn scrobble_username_filter(plex_user: &str, expected_response: &str) {
