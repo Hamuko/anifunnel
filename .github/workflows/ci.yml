@@ -32,7 +32,7 @@ jobs:
       packages: write
     steps:
       - name: Build cache path
-        run: echo "CACHE_PATH=${GITHUB_REPOSITORY@L}" >> ${GITHUB_ENV}
+        run: echo "CACHE_PATH=${GITHUB_REPOSITORY@L}-cache" >> ${GITHUB_ENV}
       - uses: actions/checkout@v4
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
