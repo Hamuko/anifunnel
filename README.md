@@ -14,20 +14,12 @@ It's also possible to customise the matching logic on a per-anime basis for tric
 
 ## Usage
 
-### Authorization
-
-Before starting to use anifunnel, you must fetch an API token.
-
-In order to fetch your token, visit the following URL in your browser: https://anilist.co/api/v2/oauth/authorize?client_id=9878&response_type=token
-
-Note that Anilist authorization tokens are valid for a year at a time.
-
 ### Running the server
 
-To start the web server, use the following command:
+To start the web server, simply run the anifunnel binary:
 
 ```bash
-anifunnel <ANILIST_TOKEN>
+anifunnel
 ```
 
 To get complete usage details, run `anifunnel --help`.
@@ -37,11 +29,30 @@ The alternative (and arguably easier) way to run anifunnel is to use the ready-m
 ```bash
 docker run \
     -p 8000:8000 \
-    -e "ANILIST_TOKEN=xxx" \
+    -v /path/to/anifunnel.sqlite:/anifunnel.sqlite \
     ghcr.io/hamuko/anifunnel:latest
 ```
 
+Example Docker Compose manifest:
+
+```yaml
+version: '3.7'
+services:
+  anifunnel:
+    container_name: anifunnel
+    image: ghcr.io/hamuko/anifunnel:latest
+    ports:
+      - 8000:8000
+    volumes:
+      - /path/to/anifunnel/db/directory:/db
+    restart: on-failure
+```
+
 Both `linux/amd64` and `linux/arm64` Docker image variants are available.
+
+### Authorization
+
+After you've started the anifunnel server, open anifunnel's URL (e.g. https://localhost:8000/) in your browser. This will open the management interface and will prompt you to authenticate with Anilist. This is required for the updates to work. Once you have successfully authenticated, you will see a list of anime on your Anilist watching list and the duration how long your token will be valid for.
 
 ### Enabling webhooks in Plex
 
@@ -53,15 +64,13 @@ For more information, see https://support.plex.tv/articles/115002267687-webhooks
 
 Note that webhooks require a Plex Pass subscription.
 
+### Adjusting matching
+
+You can customise the anime title and episode number matching logic for anifunnel using the same management interface as is used for authorizing. anifunnel will load your watching list from Anilist and allow setting a custom title (exact match) and/or an episode offset.
+
 ### Multi-season shows
 
 By default, anifunnel does not process episodes beyond the first season of a show. This is intentionally done as concatenating multiple different Anilist entries into a single Plex entry will reduce the likelihood that matching will succeed. If you want to enable multi-season matching anyways, you can use the `--multi-season` flag. Doing so will cause anifunnel to ignore Plex season numbers. For Docker, you can use the `ANIFUNNEL_MULTI_SEASON` environment variable.
-
-### Management interface
-
-You can customise the anime title and episode number matching logic for anifunnel using the management interface. You can reach the management interface by going to `/admin` (or `/`, which will redirect to the correct URL) using your browser. anifunnel will load your watching list from Anilist and allow setting a custom title (exact match) and/or an episode offset.
-
-**Important:** These overrides are currently stored in-memory only and will disappear once anifunnel is terminated. You will need to redo any applicable overrides after starting anifunnel up again.
 
 ### Username filtering
 
