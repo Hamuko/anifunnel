@@ -143,7 +143,6 @@ jobs:
         run: |
           mkdir -p ./artifacts
           if [[ $OS =~ ^macos.*$ ]]; then
-            brew install gnu-tar
             export PATH="$(brew --prefix gnu-tar)/libexec/gnubin:$PATH"
           fi
           if [[ $OS =~ ^windows.*$ ]]; then
