@@ -29,7 +29,7 @@ The alternative (and arguably easier) way to run anifunnel is to use the ready-m
 ```bash
 docker run \
     -p 8000:8000 \
-    -v /path/to/anifunnel.sqlite:/anifunnel.sqlite \
+    -v /path/to/anifunnel/db/directory:/db \
     ghcr.io/hamuko/anifunnel:latest
 ```
 
@@ -52,7 +52,7 @@ Both `linux/amd64` and `linux/arm64` Docker image variants are available.
 
 ### Authorization
 
-After you've started the anifunnel server, open anifunnel's URL (e.g. https://localhost:8000/) in your browser. This will open the management interface and will prompt you to authenticate with Anilist. This is required for the updates to work. Once you have successfully authenticated, you will see a list of anime on your Anilist watching list and the duration how long your token will be valid for.
+After you've started the anifunnel server, open anifunnel's URL (e.g. http://localhost:8000/) in your browser. This will open the management interface and will prompt you to authenticate with Anilist. This is required for the updates to work. Once you have successfully authenticated, you will see a list of anime on your Anilist watching list and the duration how long your token will be valid for.
 
 ### Enabling webhooks in Plex
 
