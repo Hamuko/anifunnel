@@ -79,9 +79,28 @@ async fn scrobble(
         }
     };
 
-    if !webhook.is_actionable(state.multi_season) {
-        info!("Webhook is not actionable");
-        return "NO OP";
+    // Check that the webhook is something anifunnel can handle.
+    match webhook.is_actionable(state.multi_season) {
+        plex::WebhookState::Actionable => log::debug!("Webhook is actionable"),
+        plex::WebhookState::NonScrobbleEvent => {
+            info!("Webhook is not a scrobble event");
+            return "NO OP";
+        }
+        plex::WebhookState::IncorrectType => {
+            info!(
+                "Scrobble event for {} is for a non-episode media ({})",
+                &webhook.metadata.title, &webhook.metadata.media_type
+            );
+            return "NO OP";
+        }
+        plex::WebhookState::IncorrectSeason => {
+            info!(
+                "Scrobble event for {} is for a non-first season ({}). \
+                Enable multi-season matching if this is unexpected.",
+                &webhook.metadata.title, &webhook.metadata.season_number
+            );
+            return "NO OP";
+        }
     }
 
     // Check possible Plex username restriction.

@@ -11,12 +11,30 @@ pub struct Webhook {
     pub metadata: WebhookMetadata,
 }
 
+#[derive(Debug, PartialEq)]
+pub enum WebhookState {
+    Actionable,
+    NonScrobbleEvent,
+    IncorrectSeason,
+    IncorrectType,
+}
+
 impl Webhook {
-    pub fn is_actionable(self: &Self, multi_season: bool) -> bool {
-        return self.event == "media.scrobble"
-            && self.metadata.media_type == "episode"
-            && (self.metadata.season_number == 1
-                || (multi_season && self.metadata.season_number >= 1));
+    pub fn is_actionable(&self, multi_season: bool) -> WebhookState {
+        if self.event != "media.scrobble" {
+            return WebhookState::NonScrobbleEvent;
+        }
+        if self.metadata.media_type != "episode" {
+            return WebhookState::IncorrectType;
+        }
+        let allowed_season = match multi_season {
+            true => self.metadata.season_number >= 1,
+            false => self.metadata.season_number == 1,
+        };
+        if !allowed_season {
+            return WebhookState::IncorrectSeason;
+        }
+        WebhookState::Actionable
     }
 }
 
@@ -59,7 +77,7 @@ mod tests {
                 episode_number: 4,
             },
         };
-        assert_eq!(webhook.is_actionable(false), true);
+        assert_eq!(webhook.is_actionable(false), WebhookState::Actionable);
     }
 
     #[test]
@@ -77,7 +95,7 @@ mod tests {
                 episode_number: 1,
             },
         };
-        assert_eq!(webhook.is_actionable(false), true);
+        assert_eq!(webhook.is_actionable(false), WebhookState::Actionable);
     }
 
     #[test]
@@ -95,7 +113,7 @@ mod tests {
                 episode_number: 4,
             },
         };
-        assert_eq!(webhook.is_actionable(false), false);
+        assert_eq!(webhook.is_actionable(false), WebhookState::IncorrectType);
     }
 
     #[test]
@@ -113,7 +131,7 @@ mod tests {
                 episode_number: 4,
             },
         };
-        assert_eq!(webhook.is_actionable(false), false);
+        assert_eq!(webhook.is_actionable(false), WebhookState::NonScrobbleEvent);
     }
 
     #[test]
@@ -131,7 +149,7 @@ mod tests {
                 episode_number: 4,
             },
         };
-        assert_eq!(webhook.is_actionable(false), false);
+        assert_eq!(webhook.is_actionable(false), WebhookState::IncorrectSeason);
     }
 
     #[test]
@@ -149,7 +167,7 @@ mod tests {
                 episode_number: 4,
             },
         };
-        assert_eq!(webhook.is_actionable(true), true);
+        assert_eq!(webhook.is_actionable(true), WebhookState::Actionable);
     }
 
     #[test]
@@ -167,7 +185,7 @@ mod tests {
                 episode_number: 3,
             },
         };
-        assert_eq!(webhook.is_actionable(false), false);
+        assert_eq!(webhook.is_actionable(false), WebhookState::IncorrectSeason);
     }
 
     #[test]
@@ -185,6 +203,6 @@ mod tests {
                 episode_number: 3,
             },
         };
-        assert_eq!(webhook.is_actionable(true), false);
+        assert_eq!(webhook.is_actionable(true), WebhookState::IncorrectSeason);
     }
 }
