@@ -73,8 +73,7 @@ async fn scrobble(
     let webhook: plex::Webhook = match serde_json::from_str(form.payload) {
         Ok(data) => data,
         Err(error) => {
-            warn!("Unable to parse payload");
-            debug!("{}", error);
+            warn!("Unable to parse payload: {}", error);
             return "ERROR";
         }
     };
