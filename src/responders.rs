@@ -1,5 +1,7 @@
 use rocket::http::Header;
 
+pub const STATIC_CONTENT_CACHE_SECONDS: i32 = 300;
+
 #[derive(Responder)]
 pub struct StaticContent<T> {
     inner: T,
@@ -9,8 +11,11 @@ pub struct StaticContent<T> {
 impl<T> StaticContent<T> {
     pub fn new(inner: T) -> Self {
         Self {
-            inner: inner,
-            cache_control: Header::new("Cache-Control", "max-age=300"),
+            inner,
+            cache_control: Header::new(
+                "Cache-Control",
+                format!("max-age={}", STATIC_CONTENT_CACHE_SECONDS),
+            ),
         }
     }
 }

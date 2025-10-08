@@ -256,7 +256,16 @@ mod test {
         ));
         let rocket = rocket::custom(figment)
             .manage(state)
-            .mount("/", routes![scrobble, management_redirect])
+            .mount(
+                "/",
+                routes![
+                    scrobble,
+                    management,
+                    management_css,
+                    management_js,
+                    management_redirect
+                ],
+            )
             .attach(db::AnifunnelDatabase::init())
             .attach(db_migrations)
             .attach(load_state_from_db);
@@ -269,6 +278,25 @@ mod test {
         let response = client.get(uri!(management_redirect)).dispatch();
         assert_eq!(response.status(), Status::SeeOther);
         assert_eq!(response.headers().get_one("Location"), Some("/admin"));
+    }
+
+    #[test_case("/admin", "text/html; charset=utf-8" ; "front-end")]
+    #[test_case("/assets/index.css", "text/css; charset=utf-8" ; "css")]
+    #[test_case("/assets/index.js", "text/javascript" ; "javascript")]
+    fn management_static_content(url: &str, content_type: &str) {
+        let client = build_client(build_state());
+        let response = client.get(url).dispatch();
+        let expected_cache_control =
+            format!("max-age={}", responders::STATIC_CONTENT_CACHE_SECONDS);
+        assert_eq!(response.status(), Status::Ok);
+        assert_eq!(
+            response.headers().get_one("Content-Type"),
+            Some(content_type)
+        );
+        assert_eq!(
+            response.headers().get_one("Cache-Control"),
+            Some(expected_cache_control.as_str())
+        );
     }
 
     #[test]
