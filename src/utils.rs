@@ -33,7 +33,7 @@ fn get_jwt_payload(token: &str) -> Option<&str> {
     if indices.len() != 2 {
         return None;
     }
-    let start = indices.get(0)? + 1;
+    let start = indices.first()? + 1;
     let end = indices.get(1)?;
     token.get(start..*end)
 }
@@ -46,4 +46,41 @@ pub fn get_token_expiry(token: &str) -> Result<Timestamp, TokenParsingError> {
     let payload =
         serde_json::from_slice::<JWTPayload>(&decoded).map_err(|_| TokenParsingError::Parse)?;
     Ok(payload.exp)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn token_expiry() {
+        let token = "eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiIsImtpZCI6ImU1MzBkOGU4YjcyYTAyZDA\
+            4ZGUyZTdiNzdkODUzYzA4In0.eyJleHAiOjE3Nzk3NDI4MDB9.FWpXxOu12akm7b1DK\
+            rzgeK33Qnl_PRpy67VXuz6qd1ezLOF4CbwFlT2o4rMGW7JXsgP0PbhdMVtGFRnnjHWhrg";
+        let expiry = get_token_expiry(token);
+        assert_eq!(expiry.unwrap(), 1779742800);
+    }
+
+    #[test]
+    fn token_expiry_no_exp() {
+        let token = "eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiIsImtpZCI6ImU1MzBkOGU4Yjcy\
+            YTAyZDA4ZGUyZTdiNzdkODUzYzA4In0.e30.axrvIXGrV_LI9PMUnv8th66U\
+            e0UGv2lsb6r9U5IY-S7hJBwQMGCjEtGWE9p53ms-w6sVC4SRagwSsU_mUt4-KQ";
+        let expiry = get_token_expiry(token);
+        assert!(matches!(expiry, Err(TokenParsingError::Parse)))
+    }
+
+    #[test]
+    fn token_expiry_not_jwt() {
+        let token = "thisis.notjwt";
+        let expiry = get_token_expiry(token);
+        assert!(matches!(expiry, Err(TokenParsingError::Payload)))
+    }
+
+    #[test]
+    fn token_expiry_undecodable() {
+        let token = "youcant.decode.thispayload";
+        let expiry = get_token_expiry(token);
+        assert!(matches!(expiry, Err(TokenParsingError::Decode(_))))
+    }
 }
