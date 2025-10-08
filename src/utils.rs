@@ -8,18 +8,19 @@ struct JWTPayload {
     exp: Timestamp,
 }
 
+#[derive(Debug)]
 pub enum TokenParsingError {
-    PayloadError,
-    DecodeError(base64::DecodeError),
-    ParseError,
+    Payload,
+    Decode(base64::DecodeError),
+    Parse,
 }
 
 impl std::fmt::Display for TokenParsingError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::PayloadError => write!(f, "No payload in token"),
-            Self::DecodeError(err) => write!(f, "Decode error: {}", err),
-            Self::ParseError => write!(f, "Could not parse JWT payload"),
+            Self::Payload => write!(f, "No payload in token"),
+            Self::Decode(err) => write!(f, "Decode error: {}", err),
+            Self::Parse => write!(f, "Could not parse JWT payload"),
         }
     }
 }
@@ -38,11 +39,11 @@ fn get_jwt_payload(token: &str) -> Option<&str> {
 }
 
 pub fn get_token_expiry(token: &str) -> Result<Timestamp, TokenParsingError> {
-    let payload_slice = get_jwt_payload(token).ok_or(TokenParsingError::PayloadError)?;
+    let payload_slice = get_jwt_payload(token).ok_or(TokenParsingError::Payload)?;
     let decoded = STANDARD_NO_PAD
         .decode(payload_slice)
-        .map_err(|err| TokenParsingError::DecodeError(err))?;
-    let payload = serde_json::from_slice::<JWTPayload>(&decoded)
-        .map_err(|_| TokenParsingError::ParseError)?;
+        .map_err(TokenParsingError::Decode)?;
+    let payload =
+        serde_json::from_slice::<JWTPayload>(&decoded).map_err(|_| TokenParsingError::Parse)?;
     Ok(payload.exp)
 }
