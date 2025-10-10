@@ -95,6 +95,7 @@ impl<T> QueryResponse<T> {
 pub struct AnilistClient {
     pub token: String,
     pub user_id: UserIdentifier,
+    pub url: String,
 }
 
 pub trait AnilistClientTrait {
@@ -105,12 +106,20 @@ pub trait AnilistClientTrait {
 
 impl AnilistClient {
     pub fn new(token: String, user_id: UserIdentifier) -> Self {
-        Self { token, user_id }
+        Self {
+            token,
+            user_id,
+            url: API_URL.to_string(),
+        }
     }
 
     /// Create a new Anilist client from only a token. Used for authentication only.
     pub fn new_from_token(token: String) -> Self {
-        Self { token, user_id: 0 }
+        Self {
+            token,
+            user_id: 0,
+            url: API_URL.to_string(),
+        }
     }
 
     async fn send_query<T>(&self, query: Query<'_, T>) -> Result<reqwest::Response, AnilistError>
@@ -120,7 +129,7 @@ impl AnilistClient {
         let body = serde_json::to_string(&query).map_err(|_| AnilistError::RequestDataError)?;
         let client = reqwest::Client::new();
         client
-            .post(API_URL)
+            .post(&self.url)
             .header("Content-Type", "application/json")
             .header("Accept", "application/json")
             .header("Authorization", format!("Bearer {}", self.token))

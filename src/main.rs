@@ -157,21 +157,12 @@ async fn scrobble(
     "OK"
 }
 
-#[rocket::main]
-async fn main() {
-    let args = AnifunnelArgs::parse();
-
-    SimpleLogger::new()
-        .with_level(LevelFilter::Info)
-        .env()
-        .init()
-        .unwrap();
-
-    let address = args.bind_address;
-    let port = args.port;
-    let database_url = args.database;
-    let state = state::Global::from_args(args.multi_season, args.plex_user);
-
+fn build_server(
+    address: Ipv4Addr,
+    port: u16,
+    database_url: String,
+    state: state::Global,
+) -> rocket::Rocket<rocket::Build> {
     // Increase the string limit from default since Plex might send the thumbnail in some
     // requests and we don't want those to cause unnecessary HTTP 413 Content Too Large
     // errors (even though we don't use those requests).
@@ -180,7 +171,6 @@ async fn main() {
     let db_migrations = AdHoc::try_on_ignite("Database migrations", db::run_migrations);
     let load_state_from_db = AdHoc::try_on_ignite("Load state from database", db::load_state);
 
-    // Launch the web server.
     let figment = rocket::Config::figment()
         .merge(("limits", limits))
         .merge(("port", port))
@@ -196,7 +186,7 @@ async fn main() {
                 extensions: None,
             },
         ));
-    let rocket = rocket::custom(figment)
+    rocket::custom(figment)
         .manage(state)
         .mount(
             "/",
@@ -214,8 +204,26 @@ async fn main() {
         )
         .attach(db::AnifunnelDatabase::init())
         .attach(db_migrations)
-        .attach(load_state_from_db);
+        .attach(load_state_from_db)
+}
 
+#[rocket::main]
+async fn main() {
+    let args = AnifunnelArgs::parse();
+
+    SimpleLogger::new()
+        .with_level(LevelFilter::Info)
+        .env()
+        .init()
+        .unwrap();
+
+    let address = args.bind_address;
+    let port = args.port;
+    let database_url = args.database;
+    let state = state::Global::from_args(args.multi_season, args.plex_user);
+
+    // Launch the web server.
+    let rocket = build_server(address, port, database_url, state);
     let _ = rocket.launch().await;
 }
 
@@ -223,57 +231,81 @@ async fn main() {
 mod test {
     use super::*;
 
+    use httpmock::prelude::*;
     use rocket::http::{ContentType, Status};
     use rocket::local::blocking::Client;
     use test_case::test_case;
     use tokio::sync::RwLock;
 
-    fn build_state() -> state::Global {
+    fn build_client(state: state::Global) -> Client {
+        let database_url = String::from(":memory:");
+        let rocket = build_server(Ipv4Addr::new(127, 0, 0, 1), 0, database_url, state);
+        return Client::tracked(rocket).expect("valid rocket instance");
+    }
+
+    fn build_state(url: String) -> state::Global {
+        let client = anilist::AnilistClient {
+            token: String::from("fake"),
+            user_id: 100,
+            url: url,
+        };
         state::Global {
             multi_season: false,
             plex_user: None,
-            anilist_client: RwLock::new(Some(anilist::AnilistClient {
-                token: "A".into(),
-                user_id: 10,
-            })),
+            anilist_client: RwLock::new(Some(client)),
         }
     }
 
-    fn build_client(state: state::Global) -> Client {
-        let db_migrations = AdHoc::try_on_ignite("Database migrations", db::run_migrations);
-        let load_state_from_db = AdHoc::try_on_ignite("Load state from database", db::load_state);
-        let figment = rocket::Config::figment().merge((
-            "databases.anifunnel",
-            rocket_db_pools::Config {
-                url: ":memory:".into(),
-                min_connections: Some(1),
-                max_connections: 10,
-                connect_timeout: 5,
-                idle_timeout: Some(120),
-                extensions: None,
+    fn build_media_list_fetch_mock(
+        server: &MockServer,
+        response: anilist::QueryResponse<anilist::data::MediaListCollectionData>,
+    ) -> httpmock::Mock<'_> {
+        server.mock(|when, then| {
+            let request = anilist::Query {
+                query: anilist::queries::MEDIALIST_QUERY,
+                variables: Some(anilist::MediaListCollectionQueryVariables { user_id: 100 }),
+            };
+            when.method(POST).path("/").json_body_obj(&request);
+            then.status(200)
+                .header("content-type", "application/json")
+                .json_body_obj(&response);
+        })
+    }
+
+    fn generate_media_list_response(
+        entries: Vec<(i64, i32, i32, &str)>,
+    ) -> anilist::QueryResponse<anilist::data::MediaListCollectionData> {
+        let entries: Vec<anilist::data::MediaList> = entries
+            .iter()
+            .map(|(id, progress, media_id, title)| {
+                let title = String::from(*title);
+                anilist::data::MediaList {
+                    id: *id,
+                    progress: *progress,
+                    media: anilist::data::Media {
+                        id: *media_id,
+                        title: anilist::data::MediaTitle {
+                            romaji: Some(title.clone()),
+                            english: Some(title.clone()),
+                            native: Some(title.clone()),
+                            userPreferred: title,
+                        },
+                    },
+                }
+            })
+            .collect();
+        anilist::QueryResponse {
+            data: anilist::data::MediaListCollectionData {
+                MediaListCollection: anilist::data::MediaListCollection {
+                    lists: vec![anilist::data::MediaListGroup { entries: entries }],
+                },
             },
-        ));
-        let rocket = rocket::custom(figment)
-            .manage(state)
-            .mount(
-                "/",
-                routes![
-                    scrobble,
-                    management,
-                    management_css,
-                    management_js,
-                    management_redirect
-                ],
-            )
-            .attach(db::AnifunnelDatabase::init())
-            .attach(db_migrations)
-            .attach(load_state_from_db);
-        return Client::tracked(rocket).expect("valid rocket instance");
+        }
     }
 
     #[test]
     fn management_redirect() {
-        let client = build_client(build_state());
+        let client = build_client(build_state("".into()));
         let response = client.get(uri!(management_redirect)).dispatch();
         assert_eq!(response.status(), Status::SeeOther);
         assert_eq!(response.headers().get_one("Location"), Some("/admin"));
@@ -283,7 +315,7 @@ mod test {
     #[test_case("/assets/index.css", "text/css; charset=utf-8" ; "css")]
     #[test_case("/assets/index.js", "text/javascript" ; "javascript")]
     fn management_static_content(url: &str, content_type: &str) {
-        let client = build_client(build_state());
+        let client = build_client(build_state("".into()));
         let response = client.get(url).dispatch();
         let expected_cache_control =
             format!("max-age={}", responders::STATIC_CONTENT_CACHE_SECONDS);
@@ -299,8 +331,37 @@ mod test {
     }
 
     #[test]
+    /// Anime matches webhook and scrobble is successful.
     fn scrobble() {
-        let client = build_client(build_state());
+        let server = MockServer::start();
+        println!("Server URL: {}", server.url(""));
+        let state = build_state(server.url(""));
+
+        let response = generate_media_list_response(vec![
+            (123456, 3, 1234, "Ao no Orchestra"),
+            (234567, 1, 2345, "Onii-chan wa Oshimai!"),
+        ]);
+        let fetch_mock = build_media_list_fetch_mock(&server, response);
+        let update_mock = server.mock(|when, then| {
+            let request = anilist::Query {
+                query: anilist::queries::MEDIALIST_MUTATION,
+                variables: Some(anilist::MediaListCollectionMutateVariables {
+                    id: 234567,
+                    progress: 2,
+                }),
+            };
+            when.method(POST).path("/").json_body_obj(&request);
+            let response = anilist::QueryResponse {
+                data: anilist::data::SaveMediaListEntryData {
+                    SaveMediaListEntry: anilist::data::SaveMediaListEntry { progress: 2 },
+                },
+            };
+            then.status(200)
+                .header("content-type", "application/json")
+                .json_body_obj(&response);
+        });
+
+        let client = build_client(state);
         let response = client
             .post(uri!(scrobble))
             .header(ContentType::Form)
@@ -311,11 +372,52 @@ mod test {
             )
             .dispatch();
         assert_eq!(response.status(), Status::Ok);
-        assert_eq!(response.into_string().unwrap(), "OK")
+        assert_eq!(response.into_string().unwrap(), "OK");
+        fetch_mock.assert();
+        update_mock.assert();
     }
 
     #[test]
-    fn scrobble_no_token() {
+    /// Anime matches webhook but progress doesn't; scrobble performs no update.
+    fn scrobble_incorrect_progress() {
+        let server = MockServer::start();
+        println!("Server URL: {}", server.url(""));
+        let state = build_state(server.url(""));
+
+        let response = generate_media_list_response(vec![
+            (123456, 3, 1234, "Ao no Orchestra"),
+            (234567, 1, 2345, "Onii-chan wa Oshimai!"),
+        ]);
+        let fetch_mock = build_media_list_fetch_mock(&server, response);
+        let update_mock = server.mock(|when, _| {
+            let request = anilist::Query {
+                query: anilist::queries::MEDIALIST_MUTATION,
+                variables: Some(anilist::MediaListCollectionMutateVariables {
+                    id: 234567,
+                    progress: 2,
+                }),
+            };
+            when.method(POST).path("/").json_body_obj(&request);
+        });
+
+        let client = build_client(state);
+        let response = client
+            .post(uri!(scrobble))
+            .header(ContentType::Form)
+            .body(
+                "payload={\"event\": \"media.scrobble\", \"Metadata\": {\
+                \"type\": \"episode\", \"grandparentTitle\": \"Onii-chan wa Oshimai!\", \
+                \"parentIndex\": 1, \"index\": 6}, \"Account\": {\"title\": \"yukikaze\"}}",
+            )
+            .dispatch();
+        assert_eq!(response.status(), Status::Ok);
+        assert_eq!(response.into_string().unwrap(), "OK");
+        fetch_mock.assert();
+        update_mock.assert_calls(0); // Update is never called.
+    }
+
+    #[test]
+    fn scrobble_no_client() {
         let state = state::Global {
             multi_season: false,
             plex_user: None,
@@ -335,17 +437,15 @@ mod test {
         assert_eq!(response.into_string().unwrap(), "ERROR")
     }
 
-    #[test_case("yukikaze", "OK" ; "correct username")]
-    #[test_case("shiranui", "NO OP" ; "incorrect username")]
-    fn scrobble_username_filter(plex_user: &str, expected_response: &str) {
-        let state = state::Global {
-            multi_season: false,
-            plex_user: Some(String::from(plex_user)),
-            anilist_client: RwLock::new(Some(anilist::AnilistClient {
-                token: "A".into(),
-                user_id: 10,
-            })),
-        };
+    #[test]
+    /// No anime matches webhook and scrobble is a NO-OP.
+    fn scrobble_no_match() {
+        let server = MockServer::start();
+        let state = build_state(server.url(""));
+
+        let response = generate_media_list_response(vec![(123456, 3, 1234, "Ao no Orchestra")]);
+        let fetch_mock = build_media_list_fetch_mock(&server, response);
+
         let client = build_client(state);
         let response = client
             .post(uri!(scrobble))
@@ -357,12 +457,59 @@ mod test {
             )
             .dispatch();
         assert_eq!(response.status(), Status::Ok);
-        assert_eq!(response.into_string().unwrap(), expected_response)
+        assert_eq!(response.into_string().unwrap(), "NO OP");
+        fetch_mock.assert();
+    }
+
+    #[test_case("yukikaze", "OK", 1 ; "correct username")]
+    #[test_case("shiranui", "NO OP", 0 ; "incorrect username")]
+    fn scrobble_username_filter(plex_user: &str, expected_response: &str, call_count: usize) {
+        let server = MockServer::start();
+        let state = state::Global {
+            multi_season: false,
+            plex_user: Some(String::from(plex_user)),
+            anilist_client: RwLock::new(Some(anilist::AnilistClient {
+                token: String::from("fake"),
+                user_id: 100,
+                url: server.url("/"),
+            })),
+        };
+
+        let response = generate_media_list_response(vec![
+            (123456, 3, 1234, "Ao no Orchestra"),
+            (234567, 1, 2345, "Onii-chan wa Oshimai!"),
+        ]);
+        let fetch_mock = build_media_list_fetch_mock(&server, response);
+        let update_mock = server.mock(|when, _| {
+            let request = anilist::Query {
+                query: anilist::queries::MEDIALIST_MUTATION,
+                variables: Some(anilist::MediaListCollectionMutateVariables {
+                    id: 234567,
+                    progress: 2,
+                }),
+            };
+            when.method(POST).path("/").json_body_obj(&request);
+        });
+
+        let client = build_client(state);
+        let response = client
+            .post(uri!(scrobble))
+            .header(ContentType::Form)
+            .body(
+                "payload={\"event\": \"media.scrobble\", \"Metadata\": {\
+                \"type\": \"episode\", \"grandparentTitle\": \"Onii-chan wa Oshimai!\", \
+                \"parentIndex\": 1, \"index\": 2}, \"Account\": {\"title\": \"yukikaze\"}}",
+            )
+            .dispatch();
+        assert_eq!(response.status(), Status::Ok);
+        assert_eq!(response.into_string().unwrap(), expected_response);
+        fetch_mock.assert_calls(call_count);
+        update_mock.assert_calls(call_count);
     }
 
     #[test]
-    fn scrobble_non_actionable() {
-        let client = build_client(build_state());
+    fn scrobble_non_scrobble_event() {
+        let client = build_client(build_state("".into()));
         let response = client
             .post(uri!(scrobble))
             .header(ContentType::Form)
@@ -378,7 +525,7 @@ mod test {
 
     #[test]
     fn scrobble_empty_post() {
-        let client = build_client(build_state());
+        let client = build_client(build_state("".into()));
         let response = client.post(uri!(scrobble)).dispatch();
         assert_eq!(response.status(), Status::UnsupportedMediaType);
     }
