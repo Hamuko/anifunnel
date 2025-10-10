@@ -121,8 +121,7 @@ async fn scrobble(
     };
 
     if let Ok(media_list_entries) = anilist_client.get_watching_list().await {
-        let mut anime_override =
-            db::get_override_by_title(&mut **db, &webhook.metadata.title).await;
+        let mut anime_override = db::get_override_by_title(&mut db, &webhook.metadata.title).await;
         let matched_media_list = match &anime_override {
             Some(o) => media_list_entries.find_id(&o.id),
             None => media_list_entries.find_match(&webhook.metadata.title),
@@ -137,7 +136,7 @@ async fn scrobble(
         debug!("Processing {}", matched_media_list);
 
         if anime_override.is_none() {
-            anime_override = db::get_override_by_id(&mut **db, matched_media_list.id).await;
+            anime_override = db::get_override_by_id(&mut db, matched_media_list.id).await;
         }
         let episode_offset = match &anime_override {
             Some(o) => o.get_episode_offset(),

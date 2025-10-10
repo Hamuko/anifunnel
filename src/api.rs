@@ -66,7 +66,7 @@ pub async fn anime_override(
         Some(0) => None,
         episode_offset => episode_offset,
     };
-    let result = db::set_override(&mut **db, id, title, episode_offset).await;
+    let result = db::set_override(&mut db, id, title, episode_offset).await;
     match result {
         Ok(result) => {
             log::info!(

@@ -25,6 +25,7 @@ reqwest = { version = "0.11", default-features = false, features = ["json", "rus
 reqwest = { version = "0.11", default-features = false, features = ["json", "default-tls"] }
 
 [dev-dependencies]
+chrono = "0.4"
 httpmock = "0.8"
 test-case = "3.1"
 
