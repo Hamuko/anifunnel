@@ -14,7 +14,7 @@ pub struct Anime {
 
 impl Anime {
     pub fn build(
-        media_list_group: &anilist::MediaListGroup,
+        media_list_group: &anilist::data::MediaListGroup,
         overrides: &mut OverrideMap,
     ) -> Vec<Self> {
         let mut result: Vec<Self> = Vec::new();
@@ -27,7 +27,7 @@ impl Anime {
             result.push(Self {
                 id: entry.id,
                 media_id: entry.media.id,
-                title: entry.media.get_display_title(),
+                title: entry.media.title.to_string(),
                 episode_offset,
                 title_override,
             });

@@ -1,3 +1,4 @@
+use crate::anilist;
 use crate::state;
 use rocket::fairing;
 use rocket::Build;
@@ -47,12 +48,9 @@ async fn load_user_info(db: &AnifunnelDatabase, state: &state::Global) {
     .await;
     match result {
         Ok(Some(row)) => {
-            let user_info = state::UserInfo {
-                token: row.token,
-                user_id: row.user_id,
-            };
-            let mut state_lock = state.user.write().await;
-            *state_lock = Some(user_info);
+            let client = anilist::AnilistClient::new(row.token, row.user_id);
+            let mut client_lock = state.anilist_client.write().await;
+            *client_lock = Some(client);
             log::info!("Loaded user info for {} ({})", row.username, row.user_id);
         }
         Ok(None) => log::warn!(

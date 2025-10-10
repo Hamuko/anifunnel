@@ -2,6 +2,7 @@ mod requests;
 mod responders;
 mod responses;
 
+use crate::anilist::AnilistClientTrait;
 use crate::{anilist, db, state, utils};
 use rocket::futures::future::TryFutureExt;
 use rocket::response::status;
@@ -17,8 +18,8 @@ pub async fn anime_get(
     state: &rocket::State<state::Global>,
 ) -> Result<responders::APIResponse<Vec<responses::Anime>>, responders::ErrorResponder> {
     // Get the user ID and token from the application state or exit with an error.
-    let user_info_lock = state.user.read().await;
-    let Some(user_info) = &(*user_info_lock) else {
+    let client_lock = state.anilist_client.read().await;
+    let Some(client) = &(*client_lock) else {
         warn!("Anilist token needs to be set through the management interface get watching list");
         return Err(responders::ErrorResponder::with_message(
             "No Anilist token found.".into(),
@@ -38,7 +39,7 @@ pub async fn anime_get(
             OverrideMap::with_capacity(0)
         });
 
-    match anilist::get_watching_list(&user_info.token, user_info.user_id).await {
+    match client.get_watching_list().await {
         Ok(media_list_group) => Ok(responders::APIResponse::new(responses::Anime::build(
             &media_list_group,
             &mut overrides,
@@ -131,7 +132,8 @@ pub async fn user_post(
             )));
         }
     };
-    let user = match anilist::get_user(data.token).await {
+    let client = anilist::AnilistClient::new_from_token(data.token.to_owned());
+    let user = match client.get_user().await {
         Ok(user) => user,
         Err(anilist::AnilistError::InvalidToken) => {
             return Err(responders::ErrorResponder::with_message(
@@ -172,14 +174,11 @@ pub async fn user_post(
     }
 
     // Update the state with the new token and user ID.
-    let user_info = state::UserInfo {
-        token: data.token.to_owned(),
-        user_id: user.id,
-    };
+    let client = anilist::AnilistClient::new(data.token.to_owned(), user.id);
     let anifunnel_state: &state::Global = state.inner();
     {
-        let mut writer = anifunnel_state.user.write().await;
-        *writer = Some(user_info);
+        let mut writer = anifunnel_state.anilist_client.write().await;
+        *writer = Some(client);
         info!("Application state updated with the new token");
     }
     Ok(status::Accepted(()))

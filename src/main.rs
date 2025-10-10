@@ -10,6 +10,7 @@ mod responders;
 mod state;
 mod utils;
 
+use crate::anilist::AnilistClientTrait;
 use clap::Parser;
 use log::{debug, error, info, warn, LevelFilter};
 use rocket::data::{Limits, ToByteUnit};
@@ -113,15 +114,13 @@ async fn scrobble(
     }
 
     // Get the user ID and token from the application state or exit with an error.
-    let user_info_lock = state.user.read().await;
-    let Some(user_info) = &(*user_info_lock) else {
+    let client_lock = state.anilist_client.read().await;
+    let Some(anilist_client) = &(*client_lock) else {
         warn!("Anilist token needs to be set through the management interface to update progress");
         return "ERROR";
     };
 
-    if let Ok(media_list_entries) =
-        anilist::get_watching_list(&user_info.token, user_info.user_id).await
-    {
+    if let Ok(media_list_entries) = anilist_client.get_watching_list().await {
         let mut anime_override =
             db::get_override_by_title(&mut **db, &webhook.metadata.title).await;
         let matched_media_list = match &anime_override {
@@ -145,7 +144,7 @@ async fn scrobble(
             None => 0,
         };
         if webhook.metadata.episode_number + episode_offset == matched_media_list.progress + 1 {
-            match matched_media_list.update(&user_info.token).await {
+            match anilist_client.update_progress(matched_media_list).await {
                 Ok(true) => info!("Updated '{}' progress", matched_media_list.media.title),
                 Ok(false) => error!(
                     "Failed to update progress for '{}'",
@@ -233,7 +232,7 @@ mod test {
         state::Global {
             multi_season: false,
             plex_user: None,
-            user: RwLock::new(Some(state::UserInfo {
+            anilist_client: RwLock::new(Some(anilist::AnilistClient {
                 token: "A".into(),
                 user_id: 10,
             })),
@@ -320,7 +319,7 @@ mod test {
         let state = state::Global {
             multi_season: false,
             plex_user: None,
-            user: RwLock::new(None),
+            anilist_client: RwLock::new(None),
         };
         let client = build_client(state);
         let response = client
@@ -342,7 +341,7 @@ mod test {
         let state = state::Global {
             multi_season: false,
             plex_user: Some(String::from(plex_user)),
-            user: RwLock::new(Some(state::UserInfo {
+            anilist_client: RwLock::new(Some(anilist::AnilistClient {
                 token: "A".into(),
                 user_id: 10,
             })),
