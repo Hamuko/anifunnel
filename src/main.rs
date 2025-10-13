@@ -60,6 +60,14 @@ async fn management_js() -> responders::StaticContent<RawJavaScript<&'static str
     responders::StaticContent::new(RawJavaScript(include_str!("../dist/assets/index.js")))
 }
 
+#[get("/favicon.svg")]
+async fn favicon_svg() -> responders::StaticContent<(rocket::http::ContentType, &'static str)> {
+    responders::StaticContent::new((
+        rocket::http::ContentType::SVG,
+        include_str!("../dist/favicon.svg"),
+    ))
+}
+
 #[get("/")]
 async fn management_redirect() -> Redirect {
     Redirect::to(uri!(management))
@@ -204,6 +212,7 @@ fn build_server(
                 api::user_post,
                 api::anime_get,
                 api::anime_override,
+                favicon_svg,
                 management,
                 management_css,
                 management_js,
@@ -322,6 +331,7 @@ mod test {
     #[test_case("/admin", "text/html; charset=utf-8" ; "front-end")]
     #[test_case("/assets/index.css", "text/css; charset=utf-8" ; "css")]
     #[test_case("/assets/index.js", "text/javascript" ; "javascript")]
+    #[test_case("/favicon.svg", "image/svg+xml" ; "favicon")]
     fn management_static_content(url: &str, content_type: &str) {
         let client = build_client(build_state("".into()));
         let response = client.get(url).dispatch();
