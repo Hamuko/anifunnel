@@ -1,6 +1,26 @@
 use serde::{Deserialize, Deserializer};
 use serde_json::Value;
 
+#[derive(Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum MediaType {
+    Album,
+    Artist,
+    Clip,
+    Collection,
+    Episode,
+    Movie,
+    Person,
+    Photo,
+    PhotoAlbum,
+    Playlist,
+    PlaylistFolder,
+    Season,
+    Show,
+    Track,
+    Trailer,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct Webhook {
     event: String,
@@ -46,7 +66,7 @@ impl Webhook {
             // event, but we have it just in case.
             return WebhookState::NoMetadata;
         };
-        if metadata.media_type != "episode" {
+        if metadata.media_type != MediaType::Episode {
             return WebhookState::IncorrectType;
         }
         let allowed_season = match multi_season {
@@ -69,7 +89,7 @@ pub struct WebhookAccount {
 #[derive(Debug, Deserialize, PartialEq)]
 pub struct WebhookMetadata {
     #[serde(rename = "type")]
-    pub media_type: String,
+    pub media_type: MediaType,
 
     #[serde(rename = "grandparentTitle")]
     pub title: String,
@@ -161,7 +181,7 @@ mod tests {
         assert_eq!(
             webhook.metadata,
             Some(WebhookMetadata {
-                media_type: "episode".into(),
+                media_type: MediaType::Episode,
                 title: "Chanto Suenai Kyuuketsuki-chan".into(),
                 season_number: 1,
                 episode_number: 2,
@@ -203,7 +223,7 @@ mod tests {
                 name: String::from("yukikaze"),
             },
             metadata: Some(WebhookMetadata {
-                media_type: String::from("episode"),
+                media_type: MediaType::Episode,
                 title: String::from("Onii-chan wa Oshimai!"),
                 season_number: 1,
                 episode_number: 4,
@@ -221,7 +241,7 @@ mod tests {
                 name: String::from("yukikaze"),
             },
             metadata: Some(WebhookMetadata {
-                media_type: String::from("episode"),
+                media_type: MediaType::Episode,
                 title: String::from("Onii-chan wa Oshimai!"),
                 season_number: 1,
                 episode_number: 1,
@@ -239,7 +259,7 @@ mod tests {
                 name: String::from("yukikaze"),
             },
             metadata: Some(WebhookMetadata {
-                media_type: String::from("track"),
+                media_type: MediaType::Track,
                 title: String::from("Onii-chan wa Oshimai!"),
                 season_number: 1,
                 episode_number: 4,
@@ -270,7 +290,7 @@ mod tests {
                 name: String::from("yukikaze"),
             },
             metadata: Some(WebhookMetadata {
-                media_type: String::from("episode"),
+                media_type: MediaType::Episode,
                 title: String::from("Onii-chan wa Oshimai!"),
                 season_number: 1,
                 episode_number: 4,
@@ -288,7 +308,7 @@ mod tests {
                 name: String::from("yukikaze"),
             },
             metadata: Some(WebhookMetadata {
-                media_type: String::from("episode"),
+                media_type: MediaType::Episode,
                 title: String::from("Kidou Senshi Gundam: Suisei no Majo"),
                 season_number: 2,
                 episode_number: 4,
@@ -306,7 +326,7 @@ mod tests {
                 name: String::from("yukikaze"),
             },
             metadata: Some(WebhookMetadata {
-                media_type: String::from("episode"),
+                media_type: MediaType::Episode,
                 title: String::from("Kidou Senshi Gundam: Suisei no Majo"),
                 season_number: 2,
                 episode_number: 4,
@@ -324,7 +344,7 @@ mod tests {
                 name: String::from("yukikaze"),
             },
             metadata: Some(WebhookMetadata {
-                media_type: String::from("episode"),
+                media_type: MediaType::Episode,
                 title: String::from("Bakemonogatari"),
                 season_number: 0,
                 episode_number: 3,
@@ -342,7 +362,7 @@ mod tests {
                 name: String::from("yukikaze"),
             },
             metadata: Some(WebhookMetadata {
-                media_type: String::from("episode"),
+                media_type: MediaType::Episode,
                 title: String::from("Bakemonogatari"),
                 season_number: 0,
                 episode_number: 3,

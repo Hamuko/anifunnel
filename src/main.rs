@@ -93,7 +93,7 @@ async fn scrobble(
         plex::WebhookState::IncorrectType => {
             let metadata = webhook.metadata.unwrap();
             info!(
-                "Scrobble event for {} is for a non-episode media ({})",
+                "Scrobble event for {} is for a non-episode media ({:?})",
                 &metadata.title, &metadata.media_type
             );
             return "NO OP";
