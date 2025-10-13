@@ -82,22 +82,28 @@ async fn scrobble(
     // Check that the webhook is something anifunnel can handle.
     match webhook.is_actionable(state.multi_season) {
         plex::WebhookState::Actionable => log::debug!("Webhook is actionable"),
+        plex::WebhookState::NoMetadata => {
+            error!("Webhook was a scrobble event but has no metadata. This should not happen.");
+            return "ERROR";
+        }
         plex::WebhookState::NonScrobbleEvent => {
             info!("Webhook is not a scrobble event");
             return "NO OP";
         }
         plex::WebhookState::IncorrectType => {
+            let metadata = webhook.metadata.unwrap();
             info!(
                 "Scrobble event for {} is for a non-episode media ({})",
-                &webhook.metadata.title, &webhook.metadata.media_type
+                &metadata.title, &metadata.media_type
             );
             return "NO OP";
         }
         plex::WebhookState::IncorrectSeason => {
+            let metadata = webhook.metadata.unwrap();
             info!(
                 "Scrobble event for {} is for a non-first season ({}). \
                 Enable multi-season matching if this is unexpected.",
-                &webhook.metadata.title, &webhook.metadata.season_number
+                &metadata.title, &metadata.season_number
             );
             return "NO OP";
         }
@@ -121,15 +127,17 @@ async fn scrobble(
     };
 
     if let Ok(media_list_entries) = anilist_client.get_watching_list().await {
-        let mut anime_override = db::get_override_by_title(&mut db, &webhook.metadata.title).await;
+        let metadata = webhook.metadata.unwrap();
+
+        let mut anime_override = db::get_override_by_title(&mut db, &metadata.title).await;
         let matched_media_list = match &anime_override {
             Some(o) => media_list_entries.find_id(&o.id),
-            None => media_list_entries.find_match(&webhook.metadata.title),
+            None => media_list_entries.find_match(&metadata.title),
         };
         let matched_media_list = match matched_media_list {
             Some(media_list) => media_list,
             None => {
-                debug!("Could not find a match for '{}'", &webhook.metadata.title);
+                debug!("Could not find a match for '{}'", &metadata.title);
                 return "NO OP";
             }
         };
@@ -142,7 +150,8 @@ async fn scrobble(
             Some(o) => o.get_episode_offset(),
             None => 0,
         };
-        if webhook.metadata.episode_number + episode_offset == matched_media_list.progress + 1 {
+
+        if metadata.episode_number + episode_offset == matched_media_list.progress + 1 {
             match anilist_client.update_progress(matched_media_list).await {
                 Ok(true) => info!("Updated '{}' progress", matched_media_list.media.title),
                 Ok(false) => error!(
