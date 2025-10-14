@@ -4,8 +4,6 @@ ARG VITE_APP_VERSION VITE_APP_BUILD
 
 FROM rust:1.90 AS build
 
-ARG VITE_APP_VERSION VITE_APP_BUILD
-
 ENV CARGO_NET_GIT_FETCH_WITH_CLI=true
 
 RUN apt-get update && \
@@ -31,6 +29,9 @@ RUN npm install
 
 WORKDIR /anifunnel
 ADD . ./
+
+ARG VITE_APP_BUILD
+ARG VITE_APP_VERSION
 
 # Build the front-end for the server build.
 WORKDIR /anifunnel/frontend
