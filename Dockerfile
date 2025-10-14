@@ -51,6 +51,7 @@ COPY --from=build /anifunnel/target/release/anifunnel .
 
 ENV ANIFUNNEL_ADDRESS=0.0.0.0 \
     ANIFUNNEL_DATABASE=/db/anifunnel.db \
+    ANIFUNNEL_LOG_LEVEL=info \
     ANIFUNNEL_PORT=8000
 
 EXPOSE 8000

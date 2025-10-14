@@ -43,6 +43,10 @@ struct AnifunnelArgs {
     /// Only process updates from a specific Plex username.
     #[clap(long, env = "ANILIST_PLEX_USER")]
     plex_user: Option<String>,
+
+    /// Set the logging level.
+    #[clap(long, default_value_t = LevelFilter::Info, env = "ANIFUNNEL_LOG_LEVEL")]
+    log_level: LevelFilter,
 }
 
 #[get("/admin")]
@@ -229,7 +233,7 @@ async fn main() {
     let args = AnifunnelArgs::parse();
 
     SimpleLogger::new()
-        .with_level(LevelFilter::Info)
+        .with_level(args.log_level)
         .env()
         .init()
         .unwrap();
