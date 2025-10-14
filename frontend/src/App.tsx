@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import "./App.css";
 import AuthenticationForm from "./components/Authentication";
 import Header from "./components/Header";
+import Footer from "./components/Footer";
 import AnimeList from "./components/AnimeList";
 import type { User } from "./types";
 
@@ -46,6 +47,7 @@ function App() {
           />
         </div>
       </main>
+      <Footer />
     </>
   );
 }

@@ -24,12 +24,31 @@ jobs:
       - name: Run tests
         run: cargo test --verbose
 
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      build: ${{ steps.build.outputs.build }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - id: version
+        name: Get version number
+        run: echo "version=$(git describe --tags --always)" >> "$GITHUB_OUTPUT"
+      - id: build
+        name: Get build number
+        run: echo "build=${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+
   docker:
-    needs: test
+    needs: [test, setup]
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+    env:
+      VITE_APP_VERSION: ${{ needs.setup.outputs.version }}
+      VITE_APP_BUILD: ${{ needs.setup.outputs.build }}
     steps:
       - name: Build cache path
         run: echo "CACHE_PATH=${GITHUB_REPOSITORY@L}-cache" >> ${GITHUB_ENV}
@@ -57,6 +76,7 @@ jobs:
         with:
           file: Dockerfile
           context: .
+          build-args: VITE_APP_VERSION,VITE_APP_BUILD
           push: ${{ github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/') }}
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
@@ -65,7 +85,7 @@ jobs:
           cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.CACHE_PATH }}:cache,mode=max
 
   build:
-    needs: test
+    needs: [test, setup]
     strategy:
       fail-fast: false
       matrix:
@@ -97,6 +117,8 @@ jobs:
       TARGET_CC: ${{ matrix.TARGET_CC }}
       TARGET_AR: ${{ matrix.TARGET_AR }}
       OS: ${{ matrix.OS }}
+      VITE_APP_VERSION: ${{ needs.setup.outputs.version }}
+      VITE_APP_BUILD: ${{ needs.setup.outputs.build }}
     steps:
       - uses: actions/checkout@v4
       - name: Cargo cache
