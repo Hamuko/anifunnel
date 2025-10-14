@@ -46,9 +46,6 @@ jobs:
     permissions:
       contents: read
       packages: write
-    env:
-      VITE_APP_VERSION: ${{ needs.setup.outputs.version }}
-      VITE_APP_BUILD: ${{ needs.setup.outputs.build }}
     steps:
       - name: Build cache path
         run: echo "CACHE_PATH=${GITHUB_REPOSITORY@L}-cache" >> ${GITHUB_ENV}
@@ -76,7 +73,7 @@ jobs:
         with:
           file: Dockerfile
           context: .
-          build-args: VITE_APP_VERSION,VITE_APP_BUILD
+          build-args: VITE_APP_VERSION=${{ needs.setup.outputs.version }},VITE_APP_BUILD=${{ needs.setup.outputs.build }}
           push: ${{ github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/') }}
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
