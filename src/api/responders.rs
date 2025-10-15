@@ -31,28 +31,3 @@ impl<T> APIResponse<T> {
         }
     }
 }
-
-// #[derive(Responder)]
-// struct CorsResponse {
-//     inner: (),
-//     allow_origin: rocket::http::Header<'static>,
-//     allow_methods: rocket::http::Header<'static>,
-//     allow_headers: rocket::http::Header<'static>,
-// }
-
-// impl CorsResponse {
-//     fn new() -> Self {
-//         Self {
-//             inner: (),
-//             allow_origin: rocket::http::Header::new("Access-Control-Allow-Origin", "*"),
-//             allow_methods: rocket::http::Header::new(
-//                 "Access-Control-Allow-Methods",
-//                 "GET, POST, OPTIONS",
-//             ),
-//             allow_headers: rocket::http::Header::new(
-//                 "Access-Control-Allow-Headers",
-//                 "Content-Type",
-//             ),
-//         }
-//     }
-// }
