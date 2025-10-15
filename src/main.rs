@@ -258,17 +258,25 @@ mod test {
 
     use httpmock::prelude::*;
     use rocket::http::{ContentType, Status};
-    use rocket::local::blocking::Client;
+    use rocket::local::{asynchronous, blocking};
     use test_case::test_case;
     use tokio::sync::RwLock;
 
-    fn build_client(state: state::Global) -> Client {
+    pub fn build_client(state: state::Global) -> blocking::Client {
         let database_url = String::from(":memory:");
         let rocket = build_server(Ipv4Addr::new(127, 0, 0, 1), 0, database_url, state);
-        return Client::tracked(rocket).expect("valid rocket instance");
+        blocking::Client::tracked(rocket).expect("valid rocket instance")
     }
 
-    fn build_state(url: String) -> state::Global {
+    pub async fn build_async_client(state: state::Global) -> asynchronous::Client {
+        let database_url = String::from(":memory:");
+        let rocket = build_server(Ipv4Addr::new(127, 0, 0, 1), 0, database_url, state);
+        asynchronous::Client::tracked(rocket)
+            .await
+            .expect("valid rocket instance")
+    }
+
+    pub fn build_state(url: String) -> state::Global {
         let client = anilist::AnilistClient {
             token: String::from("fake"),
             user_id: 100,
@@ -399,6 +407,182 @@ mod test {
             .dispatch();
         assert_eq!(response.status(), Status::Ok);
         assert_eq!(response.into_string().unwrap(), "OK");
+        fetch_mock.assert();
+        update_mock.assert();
+    }
+
+    #[rocket::async_test]
+    /// Anime matches webhook, has an episode offset, and scrobble is successful.
+    async fn scrobble_episode_offset() {
+        let server = MockServer::start();
+        println!("Server URL: {}", server.url(""));
+        let state = build_state(server.url(""));
+
+        let response = generate_media_list_response(vec![
+            (123456, 3, 1234, "Ao no Orchestra"),
+            (234567, 2, 2345, "Sono Bisque Doll wa Koi wo Suru Season 2"),
+            (345678, 1, 3456, "Onii-chan wa Oshimai!"),
+        ]);
+        let fetch_mock = build_media_list_fetch_mock(&server, response);
+        let update_mock = server.mock(|when, then| {
+            let request = anilist::Query {
+                query: anilist::queries::MEDIALIST_MUTATION,
+                variables: Some(anilist::MediaListCollectionMutateVariables {
+                    id: 234567,
+                    progress: 3,
+                }),
+            };
+            when.method(POST).path("/").json_body_obj(&request);
+            let response = anilist::QueryResponse {
+                data: anilist::data::SaveMediaListEntryData {
+                    SaveMediaListEntry: anilist::data::SaveMediaListEntry { progress: 2 },
+                },
+            };
+            then.status(200)
+                .header("content-type", "application/json")
+                .json_body_obj(&response);
+        });
+
+        let client = build_async_client(state).await;
+
+        let database = db::AnifunnelDatabase::fetch(client.rocket()).unwrap();
+        let mut connection = database.acquire().await.unwrap();
+        db::set_override(&mut connection, 234567, None, Some(-12))
+            .await
+            .expect("Could not set override");
+
+        let response = client
+            .post(uri!(scrobble))
+            .header(ContentType::Form)
+            .body(
+                "payload={\"event\": \"media.scrobble\", \"Metadata\": {\
+                \"type\": \"episode\", \"grandparentTitle\": \"Sono Bisque Doll wa Koi o Suru (2025)\", \
+                \"parentIndex\": 1, \"index\": 15}, \"Account\": {\"title\": \"yukikaze\"}}",
+            )
+            .dispatch()
+            .await;
+        assert_eq!(response.status(), Status::Ok);
+        assert_eq!(response.into_string().await.unwrap(), "OK");
+        fetch_mock.assert();
+        update_mock.assert();
+    }
+
+    #[rocket::async_test]
+    /// Anime is matched with title override and scrobble is successful.
+    async fn scrobble_override_title() {
+        let server = MockServer::start();
+        println!("Server URL: {}", server.url(""));
+        let state = build_state(server.url(""));
+
+        let response = generate_media_list_response(vec![
+            (345678, 2, 3456, "Ao no Orchestra Season 2"),
+            (456789, 2, 4567, "Boku no Hero Academia FINAL SEASON"),
+        ]);
+        let fetch_mock = build_media_list_fetch_mock(&server, response);
+        let update_mock = server.mock(|when, then| {
+            let request = anilist::Query {
+                query: anilist::queries::MEDIALIST_MUTATION,
+                variables: Some(anilist::MediaListCollectionMutateVariables {
+                    id: 456789,
+                    progress: 3,
+                }),
+            };
+            when.method(POST).path("/").json_body_obj(&request);
+            let response = anilist::QueryResponse {
+                data: anilist::data::SaveMediaListEntryData {
+                    SaveMediaListEntry: anilist::data::SaveMediaListEntry { progress: 3 },
+                },
+            };
+            then.status(200)
+                .header("content-type", "application/json")
+                .json_body_obj(&response);
+        });
+
+        let client = build_async_client(state).await;
+
+        let database = db::AnifunnelDatabase::fetch(client.rocket()).unwrap();
+        let mut connection = database.acquire().await.unwrap();
+        db::set_override(
+            &mut connection,
+            456789,
+            Some("Boku no Hero Academia (2025)"),
+            None,
+        )
+        .await
+        .expect("Could not set override");
+
+        let response = client
+            .post(uri!(scrobble))
+            .header(ContentType::Form)
+            .body(
+                "payload={\"event\": \"media.scrobble\", \"Metadata\": {\
+                \"type\": \"episode\", \"grandparentTitle\": \"Boku no Hero Academia (2025)\", \
+                \"parentIndex\": 1, \"index\": 3}, \"Account\": {\"title\": \"yukikaze\"}}",
+            )
+            .dispatch()
+            .await;
+        assert_eq!(response.status(), Status::Ok);
+        assert_eq!(response.into_string().await.unwrap(), "OK");
+        fetch_mock.assert();
+        update_mock.assert();
+    }
+
+    #[rocket::async_test]
+    /// Anime is matched with title override, has an episode offset, and scrobble is successful.
+    async fn scrobble_override_title_episode_offset() {
+        let server = MockServer::start();
+        println!("Server URL: {}", server.url(""));
+        let state = build_state(server.url(""));
+
+        let response = generate_media_list_response(vec![
+            (345678, 2, 3456, "Ao no Orchestra Season 2"),
+            (456789, 2, 4567, "Boku no Hero Academia FINAL SEASON"),
+        ]);
+        let fetch_mock = build_media_list_fetch_mock(&server, response);
+        let update_mock = server.mock(|when, then| {
+            let request = anilist::Query {
+                query: anilist::queries::MEDIALIST_MUTATION,
+                variables: Some(anilist::MediaListCollectionMutateVariables {
+                    id: 456789,
+                    progress: 3,
+                }),
+            };
+            when.method(POST).path("/").json_body_obj(&request);
+            let response = anilist::QueryResponse {
+                data: anilist::data::SaveMediaListEntryData {
+                    SaveMediaListEntry: anilist::data::SaveMediaListEntry { progress: 3 },
+                },
+            };
+            then.status(200)
+                .header("content-type", "application/json")
+                .json_body_obj(&response);
+        });
+
+        let client = build_async_client(state).await;
+
+        let database = db::AnifunnelDatabase::fetch(client.rocket()).unwrap();
+        let mut connection = database.acquire().await.unwrap();
+        db::set_override(
+            &mut connection,
+            456789,
+            Some("Boku no Hero Academia (2025)"),
+            Some(-159),
+        )
+        .await
+        .expect("Could not set override");
+
+        let response = client
+            .post(uri!(scrobble))
+            .header(ContentType::Form)
+            .body(
+                "payload={\"event\": \"media.scrobble\", \"Metadata\": {\
+                \"type\": \"episode\", \"grandparentTitle\": \"Boku no Hero Academia (2025)\", \
+                \"parentIndex\": 1, \"index\": 162}, \"Account\": {\"title\": \"yukikaze\"}}",
+            )
+            .dispatch()
+            .await;
+        assert_eq!(response.status(), Status::Ok);
+        assert_eq!(response.into_string().await.unwrap(), "OK");
         fetch_mock.assert();
         update_mock.assert();
     }
