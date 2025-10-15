@@ -163,7 +163,11 @@ async fn scrobble(
             None => 0,
         };
 
-        if metadata.episode_number + episode_offset == matched_media_list.progress + 1 {
+        let episode_number = metadata.episode_number + episode_offset;
+        if episode_number <= 1 {
+            info!("Skipping episode {} for {}", episode_number, metadata.title);
+            return "NO OP";
+        } else if episode_number == matched_media_list.progress + 1 {
             match anilist_client.update_progress(matched_media_list).await {
                 Ok(true) => info!("Updated '{}' progress", matched_media_list.media.title),
                 Ok(false) => error!(
