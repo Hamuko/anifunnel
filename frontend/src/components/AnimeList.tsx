@@ -134,6 +134,7 @@ function AnimeList() {
       const response = await fetch("/api/anime");
       return await response.json();
     },
+    staleTime: 15 * 60 * 1000,
   });
 
   return (

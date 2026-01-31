@@ -33,6 +33,7 @@ function App() {
       const response = await fetch("/api/user");
       return await response.json();
     },
+    staleTime: 5 * 60 * 1000,
   });
 
   return (
