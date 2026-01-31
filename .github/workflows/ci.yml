@@ -69,7 +69,7 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
             type=ref,event=tag
       - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           file: Dockerfile
           context: .
@@ -80,8 +80,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.CACHE_PATH }}:cache
-          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.CACHE_PATH }}:cache,mode=max
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   build:
     needs: [test, setup]
