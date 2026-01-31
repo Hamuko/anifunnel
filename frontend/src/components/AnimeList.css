@@ -8,6 +8,7 @@
 .anime-item .details {
     display: flex;
     justify-content: space-between;
+    gap: 10px;
 }
 
 .matching-info {
@@ -46,4 +47,5 @@
 .anime-item button {
     cursor: pointer;
     font-size: 13px;
+    flex-shrink: 0;
 }
