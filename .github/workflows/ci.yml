@@ -20,7 +20,7 @@ jobs:
           path: |
             ~/.cargo/registry
             ./target
-          key: build-cargo-registry-{{ runner.os }}
+          key: build-cargo-registry-${{ runner.os }}
       - name: Run tests
         run: cargo test --verbose
 
@@ -47,8 +47,6 @@ jobs:
       contents: read
       packages: write
     steps:
-      - name: Build cache path
-        run: echo "CACHE_PATH=${GITHUB_REPOSITORY@L}-cache" >> ${GITHUB_ENV}
       - uses: actions/checkout@v4
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
