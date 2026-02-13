@@ -23,6 +23,13 @@ impl AnimeOverride {
     }
 }
 
+/// Clear all authentication data from the database.
+pub async fn clear_authentication(
+    db: &mut SqliteConnection,
+) -> Result<SqliteQueryResult, sqlx::Error> {
+    sqlx::query("DELETE FROM authentication").execute(db).await
+}
+
 /// Clean up expired tokens on start-up.
 async fn remove_expired_tokens(db: &mut SqliteConnection) {
     log::info!("Removing expired Anilist tokens...");

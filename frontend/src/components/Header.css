@@ -42,3 +42,8 @@ header .user-info h5 {
 header .user-info h5 {
     font-weight: 500;
 }
+
+header .user-info h5 > a {
+    cursor: pointer;
+    font-weight: 600;
+}

@@ -183,3 +183,31 @@ pub async fn user_post(
     }
     Ok(status::Accepted(()))
 }
+
+#[delete("/api/user")]
+/// Clear the authentication data from the database and application state.
+pub async fn user_delete(
+    mut db: Connection<db::AnifunnelDatabase>,
+    state: &rocket::State<state::Global>,
+) -> Result<status::Accepted<()>, responders::ErrorResponder> {
+    match db::clear_authentication(&mut db).await {
+        Ok(_) => {
+            info!("Authentication data cleared from the database");
+        }
+        Err(err) => {
+            error!("Error while trying to clear authentication: {}", err);
+            return Err(responders::ErrorResponder::with_message(
+                "Error while clearing authentication data".into(),
+            ));
+        }
+    }
+
+    // Update the state to clear the client.
+    let anifunnel_state: &state::Global = state.inner();
+    {
+        let mut writer = anifunnel_state.anilist_client.write().await;
+        *writer = None;
+        info!("Application state cleared");
+    }
+    Ok(status::Accepted(()))
+}

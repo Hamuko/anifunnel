@@ -215,6 +215,7 @@ fn build_server(
                 scrobble,
                 api::user_get,
                 api::user_post,
+                api::user_delete,
                 api::anime_get,
                 api::anime_override,
                 favicon_svg,
