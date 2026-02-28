@@ -1,13 +1,14 @@
-ARG VITE_APP_VERSION VITE_APP_BUILD
+ARG VITE_APP_VERSION
+ARG VITE_APP_BUILD
 
 # BUILD CONTAINER
 
-FROM rust:1.90 AS build
+FROM rust:1.93 AS build
 
 ENV CARGO_NET_GIT_FETCH_WITH_CLI=true
 
 RUN apt-get update && \
-    apt-get install -y ca-certificates npm \
+    apt-get install -y npm \
     && rm -rf /var/lib/apt/lists/*
 
 RUN USER=root cargo new --bin anifunnel
@@ -44,17 +45,17 @@ RUN cargo build --release --verbose
 
 # RUNTIME CONTAINER
 
-FROM debian:trixie-slim
+FROM gcr.io/distroless/cc-debian13
 
-COPY --from=build /etc/ssl/certs/ /etc/ssl/certs/
+WORKDIR /db
 
-COPY --from=build /anifunnel/target/release/anifunnel .
+COPY --from=build /anifunnel/target/release/anifunnel /anifunnel
 
-ENV ANIFUNNEL_ADDRESS=0.0.0.0 \
-    ANIFUNNEL_DATABASE=/db/anifunnel.db \
-    ANIFUNNEL_LOG_LEVEL=info \
-    ANIFUNNEL_PORT=8000
+ENV ANIFUNNEL_ADDRESS=0.0.0.0
+ENV ANIFUNNEL_DATABASE=/db/anifunnel.db
+ENV ANIFUNNEL_LOG_LEVEL=info
+ENV ANIFUNNEL_PORT=8000
 
 EXPOSE 8000
 
-CMD ["./anifunnel"]
+CMD ["/anifunnel"]
