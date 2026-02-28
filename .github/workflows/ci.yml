@@ -11,26 +11,30 @@ env:
 
 jobs:
   test:
+    name: Run tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v6
       - name: Cargo cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/registry
             ./target
-          key: build-cargo-registry-${{ runner.os }}
+          key: test-cargo-registry-${{ runner.os }}
       - name: Run tests
         run: cargo test --verbose
 
   setup:
+    name: Prepare build information
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
       build: ${{ steps.build.outputs.build }}
     steps:
-      - uses: actions/checkout@v5
+      - name: Checkout repository
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - id: version
@@ -41,24 +45,26 @@ jobs:
         run: echo "build=${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
 
   docker:
+    name: Build Docker image
     needs: [test, setup]
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v6
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-      - name: Log in to the Container registry
+      - name: Log in to the container registry
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Docker meta
+      - name: Set up Docker metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
@@ -132,9 +138,10 @@ jobs:
       VITE_APP_BUILD: ${{ needs.setup.outputs.build }}
       VITE_APP_VERSION: ${{ needs.setup.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v6
       - name: Install Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
           node-version: 24
       - name: Build the front-end
@@ -165,19 +172,20 @@ jobs:
           mv ./target/$TARGET/release/$EXEC ./$EXEC
           tar -czf ./artifacts/$NAME-$TARGET-${GITHUB_REF_NAME//\//-}.tar.gz $EXEC
       - name: Archive artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: release-build-${{ matrix.platform.target }}
           path: |
             ./artifacts
 
   deploy:
+    name: Attach downloads to release
     needs: build
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     steps:
       - name: Download artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           path: ./artifacts
           pattern: release-build-*
