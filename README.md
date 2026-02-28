@@ -68,10 +68,6 @@ Note that webhooks require a Plex Pass subscription.
 
 You can customise the anime title and episode number matching logic for anifunnel using the same management interface as is used for authorizing. anifunnel will load your watching list from Anilist and allow setting a custom title (exact match) and/or an episode offset.
 
-### Multi-season shows
-
-By default, anifunnel does not process episodes beyond the first season of a show. This is intentionally done as concatenating multiple different Anilist entries into a single Plex entry will reduce the likelihood that matching will succeed. If you want to enable multi-season matching anyways, you can use the `--multi-season` flag. Doing so will cause anifunnel to ignore Plex season numbers. For Docker, you can use the `ANIFUNNEL_MULTI_SEASON` environment variable.
-
 ### Username filtering
 
 anifunnel processes events for all Plex users by default. If you are using a multi-user Plex instance, you can limit processing of webhook events to a single user with the `--plex-user` argument / `ANILIST_PLEX_USER` environment variable.

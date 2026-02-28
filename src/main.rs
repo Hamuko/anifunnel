@@ -36,8 +36,8 @@ struct AnifunnelArgs {
     #[clap(long, default_value = "anifunnel.sqlite", env = "ANIFUNNEL_DATABASE")]
     database: String,
 
-    /// Match against all Plex library seasons. May not accurately find matches.
-    #[arg(long, env = "ANIFUNNEL_MULTI_SEASON")]
+    /// Enable the deprecated multi-season matching feature. No longer has any effect.
+    #[arg(long, hide = true)]
     multi_season: bool,
 
     /// Only process updates from a specific Plex username.
@@ -92,7 +92,7 @@ async fn scrobble(
     };
 
     // Check that the webhook is something anifunnel can handle.
-    match webhook.is_actionable(state.multi_season) {
+    match webhook.is_actionable() {
         plex::WebhookState::Actionable => log::debug!("Webhook is actionable"),
         plex::WebhookState::NoMetadata => {
             error!("Webhook was a scrobble event but has no metadata. This should not happen.");
@@ -243,7 +243,13 @@ async fn main() {
     let address = args.bind_address;
     let port = args.port;
     let database_url = args.database;
-    let state = state::Global::from_args(args.multi_season, args.plex_user);
+    if args.multi_season {
+        log::warn!(
+            "--multi-season (ANIFUNNEL_MULTI_SEASON) has been deprecated; \
+            multi-season matching is always enabled"
+        );
+    }
+    let state = state::Global::from_args(args.plex_user);
 
     // Launch the web server.
     let rocket = build_server(address, port, database_url, state);
@@ -281,7 +287,6 @@ mod test {
             url: url,
         };
         state::Global {
-            multi_season: false,
             plex_user: None,
             anilist_client: RwLock::new(Some(client)),
         }
@@ -627,7 +632,6 @@ mod test {
     #[test]
     fn scrobble_no_client() {
         let state = state::Global {
-            multi_season: false,
             plex_user: None,
             anilist_client: RwLock::new(None),
         };
@@ -674,7 +678,6 @@ mod test {
     fn scrobble_username_filter(plex_user: &str, expected_response: &str, call_count: usize) {
         let server = MockServer::start();
         let state = state::Global {
-            multi_season: false,
             plex_user: Some(String::from(plex_user)),
             anilist_client: RwLock::new(Some(anilist::AnilistClient {
                 token: String::from("fake"),

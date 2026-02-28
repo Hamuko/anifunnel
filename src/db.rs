@@ -233,7 +233,7 @@ mod tests {
         .execute(&mut *conn)
         .await?;
 
-        let state = state::Global::from_args(false, None);
+        let state = state::Global::from_args(None);
 
         load_user_info(&mut *conn, &state).await;
 
@@ -250,7 +250,7 @@ mod tests {
     async fn load_user_info_empty(pool: SqlitePool) -> sqlx::Result<()> {
         let mut conn = pool.acquire().await?;
 
-        let state = state::Global::from_args(false, None);
+        let state = state::Global::from_args(None);
 
         load_user_info(&mut *conn, &state).await;
 
@@ -273,7 +273,7 @@ mod tests {
         .execute(&mut *conn)
         .await?;
 
-        let state = state::Global::from_args(false, None);
+        let state = state::Global::from_args(None);
 
         load_user_info(&mut *conn, &state).await;
 
