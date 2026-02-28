@@ -5,6 +5,7 @@
 ### Added
 
 - Added a log out button in management interface to revoke existing authentication.
+- Release builds for more architectures (ARM64 Windows, musl Linux).
 
 ### Changed
 

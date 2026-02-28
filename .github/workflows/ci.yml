@@ -82,68 +82,57 @@ jobs:
           cache-to: type=gha,mode=max
 
   build:
+    name: Build binary - ${{ matrix.platform.os-name }}
     needs: [test, setup]
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - TARGET: x86_64-unknown-linux-gnu
-            OS: ubuntu-latest
-          - TARGET: aarch64-unknown-linux-gnu
-            TARGET_CC: aarch64-linux-gnu-gcc
-            TARGET_AR: aarch64-linux-gnu-gcc-ar
-            OS: ubuntu-latest
-          - TARGET: armv7-unknown-linux-gnueabihf
-            TARGET_CC: arm-linux-gnueabihf-gcc
-            TARGET_AR: arm-linux-gnueabihf-gcc-ar
-            OS: ubuntu-latest
-          - TARGET: arm-unknown-linux-gnueabihf
-            TARGET_CC: arm-linux-gnueabihf-gcc
-            TARGET_AR: arm-linux-gnueabihf-gcc-ar
-            OS: ubuntu-latest
-          - TARGET: x86_64-apple-darwin
-            OS: macos-latest
-          - TARGET: aarch64-apple-darwin
-            OS: macos-latest
-          - TARGET: x86_64-pc-windows-msvc
-            OS: windows-latest
-    runs-on: ${{ matrix.OS }}
+        platform:
+          - os-name: Linux (ARM64)
+            runs-on: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+          - os-name: Linux (ARM64, musl)
+            runs-on: ubuntu-latest
+            target: aarch64-unknown-linux-musl
+          - os-name: Linux (Armv7-A)
+            runs-on: ubuntu-latest
+            target: armv7-unknown-linux-gnueabihf
+          - os-name: Linux (Armv7-A, musl)
+            runs-on: ubuntu-latest
+            target: armv7-unknown-linux-musleabihf
+          - os-name: Linux (Armv6)
+            runs-on: ubuntu-latest
+            target: arm-unknown-linux-gnueabihf
+          - os-name: Linux (Armv6, musl)
+            runs-on: ubuntu-latest
+            target: arm-unknown-linux-musleabihf
+          - os-name: Linux (x86-64)
+            runs-on: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - os-name: Linux (x86-64, musl)
+            runs-on: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+          - os-name: macOS (ARM64)
+            runs-on: macOS-latest
+            target: aarch64-apple-darwin
+          - os-name: macOS (x86-64)
+            runs-on: macOS-latest
+            target: x86_64-apple-darwin
+          - os-name: Windows (ARM64)
+            runs-on: windows-latest
+            target: aarch64-pc-windows-msvc
+          - os-name: Windows (x86-64)
+            runs-on: windows-latest
+            target: x86_64-pc-windows-msvc
+    runs-on: ${{ matrix.platform.runs-on }}
     env:
       NAME: anifunnel
-      TARGET: ${{ matrix.TARGET }}
-      TARGET_CC: ${{ matrix.TARGET_CC }}
-      TARGET_AR: ${{ matrix.TARGET_AR }}
-      OS: ${{ matrix.OS }}
-      VITE_APP_VERSION: ${{ needs.setup.outputs.version }}
+      OS: ${{ matrix.platform.runs-on }}
+      TARGET: ${{ matrix.platform.target }}
       VITE_APP_BUILD: ${{ needs.setup.outputs.build }}
+      VITE_APP_VERSION: ${{ needs.setup.outputs.version }}
     steps:
       - uses: actions/checkout@v4
-      - name: Cargo cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ./target
-          key: build-cargo-registry-${{matrix.TARGET}}
-      - name: Install and configure dependencies
-        shell: bash
-        run: |
-          if [[ $OS =~ ^ubuntu.*$ ]]; then
-            sudo apt-get update
-            sudo apt-get install -qq crossbuild-essential-arm64 crossbuild-essential-armhf
-          fi
-          # some additional configuration for cross-compilation on linux
-          cat >>~/.cargo/config <<EOF
-          [target.aarch64-unknown-linux-gnu]
-          linker = "aarch64-linux-gnu-gcc"
-          [target.armv7-unknown-linux-gnueabihf]
-          linker = "arm-linux-gnueabihf-gcc"
-          [target.arm-unknown-linux-gnueabihf]
-          linker = "arm-linux-gnueabihf-gcc"
-          EOF
-      - name: Install rust target
-        shell: bash
-        run: rustup target add $TARGET
       - name: Install Node.js
         uses: actions/setup-node@v5
         with:
@@ -154,9 +143,13 @@ jobs:
         run: |
           npm install
           npm run build
-      - name: Run build
-        shell: bash
-        run: cargo build --release --verbose --target $TARGET
+      - name: Build binary
+        uses: houseabsolute/actions-rust-cross@v1
+        with:
+          command: build
+          target: ${{ matrix.platform.target }}
+          args: "--locked --release"
+          strip: true
       - name: Compress
         shell: bash
         run: |
@@ -174,7 +167,7 @@ jobs:
       - name: Archive artifact
         uses: actions/upload-artifact@v4
         with:
-          name: release-build-${{ matrix.TARGET }}
+          name: release-build-${{ matrix.platform.target }}
           path: |
             ./artifacts
 
