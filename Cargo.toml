@@ -19,10 +19,10 @@ strsim = "0.10"
 tokio = { version = "1", features = ["sync"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-reqwest = { version = "0.11", default-features = false, features = ["json", "rustls-tls"] }
+reqwest = { version = "0.13", default-features = false, features = ["json", "rustls"] }
 
 [target.'cfg(not(target_os = "linux"))'.dependencies]
-reqwest = { version = "0.11", default-features = false, features = ["json", "default-tls"] }
+reqwest = { version = "0.13", default-features = false, features = ["json", "native-tls"] }
 
 [dev-dependencies]
 chrono = "0.4"
